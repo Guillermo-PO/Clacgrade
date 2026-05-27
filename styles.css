@@ -1,5 +1,5 @@
 /* ══════════════════════════════════════════════════
-   GradeCalc — styles.css
+   Calcgrade — styles.css
    ══════════════════════════════════════════════════ */
 
    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -192,6 +192,14 @@
    .predict-val.imp  { background:var(--red-bg);   color:var(--red); }
    .predict-val.done { background:var(--bg2);       color:var(--text3); }
    .predict-val.info { background:rgba(93,123,255,.12); color:var(--accent2); font-size:11px; }
+   
+   /* ── History Items ── */
+   .hist-item { display:flex; justify-content:space-between; align-items:center; padding:12px 0; border-bottom:1px solid var(--border); }
+   .hist-item:last-child { border-bottom:none; }
+   .hist-sem { font-weight:500; font-size:14px; }
+   .hist-prom { font-family:var(--mono); font-weight:600; color:var(--accent2); }
+   .hist-del { color:var(--red); background:var(--red-bg); border-radius:6px; width:26px; height:26px; display:inline-flex; align-items:center; justify-content:center; border:none; cursor:pointer;}
+   .hist-del:hover { background:rgba(255,95,114,.22); }
    
    /* ── Grade colors ── */
    .big-grade   { font-family:var(--mono); font-size:52px; font-weight:500; line-height:1; letter-spacing:-.02em; }
