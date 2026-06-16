@@ -19,14 +19,14 @@
         <button class="btn-icon" id="btn-theme" onclick="App.toggleTheme()">☼</button>
         <button class="btn-ghost" id="btn-user-menu" onclick="Auth.showUserMenu()" style="display:none;">Perfil</button>
       </div>
-    </header>
+    </header> 
 
-    <div id="user-menu" style="display:none; position:absolute; top:60px; right:20px; background:var(--bg2); border:1px solid var(--border); padding:16px; border-radius:var(--r-md); z-index:200; box-shadow:0 10px 30px rgba(0,0,0,0.5);">
+    <div id="user-menu" style="display:none; position:absolute; top:60px; right:20px; background:var(--bg2); border:1px solid var(--border); padding:16px; border-radius:var(--r-md); z-index:9999; box-shadow:0 10px 30px rgba(0,0,0,0.5);">
       <p id="menu-email" style="font-size:13px; color:var(--text2); margin-bottom:12px;"></p>
       <button class="btn-full" style="background:var(--red-bg); color:var(--red);" onclick="Auth.logout()">Cerrar sesión</button>
       <button class="btn-ghost btn-full" style="margin-top:8px;" onclick="Auth.closeUserMenu()">Cerrar</button>
     </div>
-
+    
     <div id="s-loading" class="screen">
       <div class="spinner"></div>
       <p style="color:var(--text3); font-size:13px;">Sincronizando...</p>
