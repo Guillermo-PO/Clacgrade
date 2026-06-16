@@ -387,36 +387,6 @@ const App = {
       }, { passive: true });
     }
 
-    // Agenda Swipe (NUEVO)
-    const agenda = document.getElementById('s-agenda');
-    if (agenda) {
-      agenda.addEventListener('touchstart', (e) => { touchStartX = e.changedTouches[0].screenX; }, { passive: true });
-      agenda.addEventListener('touchend', (e) => { 
-        if (touchStartX - e.changedTouches[0].screenX > thresh) showScreen('s-dashboard', 'slide-in-left'); 
-      }, { passive: true });
-    }
-  },
-    
-    // Dashboard Swipe
-    const dash = document.getElementById('s-dashboard');
-    if(dash) {
-      dash.addEventListener('touchstart', (e) => { touchStartX = e.changedTouches[0].screenX; }, { passive: true });
-      dash.addEventListener('touchend', (e) => { 
-        const diff = touchStartX - e.changedTouches[0].screenX;
-        if (diff > thresh) App.openAnalytics(); // Izquierda -> Analíticas
-        else if (diff < -thresh) Agenda.openAgenda(); // Derecha -> Agenda
-      }, { passive: true });
-    }
-    
-    // Analíticas Swipe
-    const anal = document.getElementById('s-analytics');
-    if(anal) {
-      anal.addEventListener('touchstart', (e) => { touchStartX = e.changedTouches[0].screenX; }, { passive: true });
-      anal.addEventListener('touchend', (e) => { 
-        if (e.changedTouches[0].screenX - touchStartX > thresh) showScreen('s-dashboard', 'slide-in-left'); 
-      }, { passive: true });
-    }
-
     // Agenda Swipe
     const agenda = document.getElementById('s-agenda');
     if (agenda) {
