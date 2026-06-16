@@ -371,28 +371,29 @@ let analyticsChartInstance = null;
 const App = {
   _activeMatColor: PALETTE[0],
 
- initSwipes() {
-    let touchStartX = 0; const thresh = 80;
+initSwipes() {
+    let startX = 0; let isDown = false; const thresh = 80;
     
-    // Dashboard -> Deslizar hacia la IZQUIERDA abre la Agenda
-    const dash = $('s-dashboard');
-    if(dash) {
-      dash.addEventListener('touchstart', (e) => { touchStartX = e.changedTouches[0].screenX; }, { passive: true });
-      dash.addEventListener('touchend', (e) => { 
-        if (touchStartX - e.changedTouches[0].screenX > thresh) Agenda.openAgenda(); 
-      }, { passive: true });
-    }
-    
-    // Agenda -> Deslizar hacia la DERECHA regresa al Dashboard
-    const agenda = $('s-agenda');
-    if (agenda) {
-      agenda.addEventListener('touchstart', (e) => { touchStartX = e.changedTouches[0].screenX; }, { passive: true });
-      agenda.addEventListener('touchend', (e) => { 
-        if (e.changedTouches[0].screenX - touchStartX > thresh) {
-          App.goBack('slide-in-left');
-        }
-      }, { passive: true });
-    }
+    const setupListeners = (el, onLeft, onRight) => {
+      if(!el) return;
+      el.addEventListener('mousedown', e => { isDown = true; startX = e.pageX; });
+      el.addEventListener('touchstart', e => { isDown = true; startX = e.changedTouches[0].screenX; }, { passive: true });
+      
+      const handleEnd = (e) => {
+        if (!isDown) return;
+        const endX = e.type === 'mouseup' ? e.pageX : e.changedTouches[0].screenX;
+        const diff = startX - endX;
+        if (diff > thresh) onLeft(); // Arrastre a la izquierda
+        else if (diff < -thresh) onRight(); // Arrastre a la derecha
+        isDown = false;
+      };
+      el.addEventListener('mouseup', handleEnd);
+      el.addEventListener('touchend', handleEnd, { passive: true });
+    };
+
+    setupListeners($('s-dashboard'), App.openAnalytics, Agenda.openAgenda);
+    setupListeners($('s-agenda'), () => showScreen('s-dashboard', 'slide-in-left'), () => {});
+    setupListeners($('s-analytics'), () => {}, () => showScreen('s-dashboard', 'slide-in-left'));
   },
   
   exportCSV() {
@@ -622,6 +623,17 @@ const App = {
     showScreen('s-dashboard', typeof animClass === 'string' ? animClass : null); 
   },
   
+  updateDots(panel) {
+    const dots = $('swipe-dots'); 
+    if (!dots) return;
+    if (panel === 'dashboard' || panel === 'agenda') {
+      dots.style.display = 'flex';
+      $('dot-dash').classList.toggle('active', panel === 'dashboard');
+      $('dot-agenda').classList.toggle('active', panel === 'agenda');
+    } else {
+      dots.style.display = 'none';
+    }
+  },
   updateDots(panel) {
     const dots = $('swipe-dots'); if (!dots) return;
     if (panel === 'dashboard' || panel === 'agenda') {
