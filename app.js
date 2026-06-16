@@ -702,7 +702,7 @@ initSwipes() {
       const chipColor = ravg === null ? 'var(--text3)' : ravg >= State.minPass ? 'var(--green)' : 'var(--red)';
       const gradesHtml = r.calificaciones.map((g, gi) => `
         <div class="grade-pill">
-          <input type="text" inputmode="decimal" class="grade-input" value="${g}" placeholder="0.0" oninput="App.updateGrade(${ri},${gi},this.value)" onblur="App.commitGrade(${ri},${gi},this.value,this)">
+          <input type="text" id="grade-input-${ri}-${gi}" inputmode="decimal" class="grade-input" value="${g}" placeholder="0.0" oninput="App.updateGrade(${ri},${gi},this.value)" onblur="App.commitGrade(${ri},${gi},this.value,this)">
           <button class="grade-del-btn" onclick="App.removeGrade(${ri},${gi})">✕</button>
         </div>
       `).join('');
@@ -835,9 +835,16 @@ initSwipes() {
   },
 
   addGrade(ri) {
-    State.materias[State.activeMateria].rubros[ri].calificaciones.push('');
+    const rubro = State.materias[State.activeMateria].rubros[ri];
+    rubro.calificaciones.push('');
     scheduleSave(); App.buildMateriaDetail();
-    setTimeout(() => { const ins = document.querySelectorAll('.grade-input'); if (ins.length) ins[ins.length - 1].focus(); }, 50);
+    
+    // Calculamos la coordenada exacta del nuevo cuadrito
+    const newGi = rubro.calificaciones.length - 1;
+    setTimeout(() => { 
+      const input = document.getElementById(`grade-input-${ri}-${newGi}`);
+      if (input) input.focus(); 
+    }, 50);
   },
   commitGrade(ri, gi, val, inputEl) {
     const p = parseFloat(val); const final = isNaN(p) ? '' : Math.max(0, Math.min(10, p));
