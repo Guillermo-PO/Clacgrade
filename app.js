@@ -118,14 +118,21 @@ const Auth = {
     if (saved) {
       State.materias = saved.materias || []; State.historial = saved.historial || []; State.minPass = saved.minPass ?? 6.0;
     }
+    
+    // Hacemos visible el botón de Perfil en el header
+    const btn = $('btn-user-menu');
+    if (btn) {
+      btn.textContent = State.user.email?.split('@')[0] ?? 'Perfil';
+      btn.style.display = 'inline-flex';
+    }
+
     if (State.materias.length) {
-      const btn = $('btn-user-menu'); if (btn) btn.textContent = State.user.email?.split('@')[0] ?? 'Perfil';
       App.buildDashboard(); showScreen('s-dashboard');
     } else {
-      const btn = $('btn-user-menu'); if (btn) btn.textContent = State.user.email?.split('@')[0] ?? 'Perfil';
       showScreen('s-setup');
     }
   },
+  
   switchTab(tab) {
     Auth.currentTab = tab;
     $('tab-login').classList.toggle('active', tab === 'login');
@@ -172,12 +179,14 @@ const Auth = {
       if (errEl) { errEl.textContent = 'Error Google: ' + error.message; errEl.classList.add('show'); }
     }
   },
-  async logout() {
+ async logout() {
     Auth.closeUserMenu(); await _supa.auth.signOut(); State.materias = []; Auth._initialized = false;
+    
+    // Ocultamos el botón del header al salir
+    const btn = $('btn-user-menu'); 
+    if (btn) btn.style.display = 'none'; 
+    
     showScreen('s-auth'); Auth.renderForm(); toast('Sesión cerrada');
-  },
-  showUserMenu() {
-    $('menu-email').textContent = State.user?.email ?? ''; $('user-menu').style.display = 'block';
   },
   closeUserMenu() { $('user-menu').style.display = 'none'; },
 };
