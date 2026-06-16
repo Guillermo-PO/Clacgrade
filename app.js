@@ -371,10 +371,10 @@ let analyticsChartInstance = null;
 const App = {
   _activeMatColor: PALETTE[0],
 
-  initSwipes() {
-    let touchStartX = 0; const thresh = 50; // Más sensible para mayor fluidez
+ initSwipes() {
+    let touchStartX = 0; const thresh = 80;
     
-    // Dashboard -> Deslizar hacia la izquierda (dedo a la izquierda) -> Abre Agenda
+    // Dashboard -> Deslizar hacia la IZQUIERDA abre la Agenda
     const dash = $('s-dashboard');
     if(dash) {
       dash.addEventListener('touchstart', (e) => { touchStartX = e.changedTouches[0].screenX; }, { passive: true });
@@ -383,12 +383,14 @@ const App = {
       }, { passive: true });
     }
     
-    // Agenda -> Deslizar hacia la derecha (dedo a la derecha) -> Regresa al Dashboard
+    // Agenda -> Deslizar hacia la DERECHA regresa al Dashboard
     const agenda = $('s-agenda');
     if (agenda) {
       agenda.addEventListener('touchstart', (e) => { touchStartX = e.changedTouches[0].screenX; }, { passive: true });
       agenda.addEventListener('touchend', (e) => { 
-        if (e.changedTouches[0].screenX - touchStartX > thresh) App.goBack('slide-in-left'); 
+        if (e.changedTouches[0].screenX - touchStartX > thresh) {
+          App.goBack('slide-in-left');
+        }
       }, { passive: true });
     }
   },
