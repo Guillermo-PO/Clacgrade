@@ -185,9 +185,6 @@
           <div id="cal-selected-events"></div>
         </div>
         
-        <div style="margin-top:30px;text-align:center;">
-           <button class="btn-ghost" style="font-size:12px;" onclick="App.goBack()">← Volver al Dashboard</button>
-        </div>
       </div>
     </div>
 
@@ -291,7 +288,10 @@
         <button class="btn btn-full" style="margin-top:20px;" onclick="Agenda.saveEvent()">Guardar en Agenda</button>
       </div>
     </div>
-
+<div class="swipe-dots" id="swipe-dots" style="display:none;">
+      <span class="s-dot" id="dot-dash"></span>
+      <span class="s-dot" id="dot-agenda"></span>
+    </div>
     <div id="toast" class="toast"></div>
   </div>
   
