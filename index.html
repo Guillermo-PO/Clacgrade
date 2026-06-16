@@ -201,29 +201,6 @@
     </div>
 
     <!-- PANTALLA: ANALÍTICAS -->
-    <div id="s-analytics" class="screen">
-      <div class="container" style="padding-top:20px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-          <button class="btn-ghost" onclick="App.goBack()">← Volver</button>
-          <h2 style="font-size:18px;">Rendimiento Histórico</h2>
-        </div>
-        <div class="card" style="padding:16px;">
-          <canvas id="analyticsChart" style="width:100%; height:220px;"></canvas>
-        </div>
-        <div class="card">
-          <h3 style="font-size:14px;margin-bottom:16px;">Agregar Semestre Anterior</h3>
-          <div style="display:grid;grid-template-columns:1fr 100px;gap:10px;margin-bottom:12px;">
-            <div class="field" style="margin:0;"><input type="text" id="hist-sem" placeholder="Ej: 3er Semestre"></div>
-            <div class="field" style="margin:0;"><input type="number" id="hist-prom" placeholder="Promedio" min="0" max="10" step="0.1"></div>
-          </div>
-          <button class="btn btn-full btn-sm" onclick="App.addHistory()">+ Guardar al historial</button>
-        </div>
-        <div class="card">
-          <h3 style="font-size:14px;margin-bottom:16px;">Historial de Semestres</h3>
-          <div id="history-list"></div>
-        </div>
-      </div>
-    </div>
 
     <!-- MODAL: AGREGAR MATERIA -->
     <div id="add-materia-modal" class="modal-overlay hidden" onclick="App.closeAddMateria(event)">
