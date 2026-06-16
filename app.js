@@ -377,46 +377,46 @@ const App = {
   _activeMatColor: PALETTE[0],
 
 initSwipes() {
-    const threshTouch = 50;
+    const thresh = 40; // Umbral óptimo de sensibilidad
     let touchStartX = 0;
-    let isWheeling = false;
-    let wheelAccX = 0; // Acumulador de inercia para trackpads
+    let isTransitioning = false;
 
-    const setupListeners = (id, onSwipeLeft, onSwipeRight) => {
-      const el = document.getElementById(id);
-      if (!el) return;
+    const dash = $('s-dashboard');
+    const agenda = $('s-agenda');
 
-      // 1. Celulares y Tablets (Touch)
-      el.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].screenX; }, { passive: true });
-      el.addEventListener('touchend', e => {
-        const diff = touchStartX - e.changedTouches[0].screenX;
-        if (diff > threshTouch) onSwipeLeft();
-        else if (diff < -threshTouch) onSwipeRight();
+    // ── GESTOS EN EL DASHBOARD (Ir a la Agenda) ──
+    if (dash) {
+      dash.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].screenX; }, { passive: true });
+      dash.addEventListener('touchend', e => {
+        if (touchStartX - e.changedTouches[0].screenX > thresh) Agenda.openAgenda();
       }, { passive: true });
 
-      // 2. Computadoras (Trackpad con 2 dedos)
-      el.addEventListener('wheel', e => {
-        if (isWheeling) return; 
-        
-        wheelAccX += e.deltaX; // Sumamos la fuerza del deslizamiento
-        
-        if (Math.abs(wheelAccX) > 60) { // Umbral perfecto para trackpads
-          isWheeling = true;
-          if (wheelAccX > 0) onSwipeLeft();
-          else onSwipeRight();
-          
-          setTimeout(() => { isWheeling = false; wheelAccX = 0; }, 600); 
+      dash.addEventListener('wheel', e => {
+        if (isTransitioning) return;
+        if (e.deltaX > 25) { // Deslizamiento hacia la izquierda
+          isTransitioning = true;
+          Agenda.openAgenda();
+          setTimeout(() => isTransitioning = false, 500);
         }
-        
-        // Si dejas de deslizar, reseteamos la fuerza
-        clearTimeout(el._wheelTimeout);
-        el._wheelTimeout = setTimeout(() => { wheelAccX = 0; }, 150);
-        
       }, { passive: true });
-    };
+    }
 
-    setupListeners('s-dashboard', () => Agenda.openAgenda(), () => {});
-    setupListeners('s-agenda', () => {}, () => App.goBack('slide-in-left'));
+    // ── GESTOS EN LA AGENDA (Regresar al Dashboard) ──
+    if (agenda) {
+      agenda.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].screenX; }, { passive: true });
+      agenda.addEventListener('touchend', e => {
+        if (e.changedTouches[0].screenX - touchStartX > thresh) App.goBack('slide-in-left');
+      }, { passive: true });
+
+      agenda.addEventListener('wheel', e => {
+        if (isTransitioning) return;
+        if (e.deltaX < -25) { // Deslizamiento hacia la derecha
+          isTransitioning = true;
+          App.goBack('slide-in-left');
+          setTimeout(() => isTransitioning = false, 500);
+        }
+      }, { passive: true });
+    }
   },
   
   exportCSV() {
@@ -626,14 +626,12 @@ initSwipes() {
     
     App.updateDashboardWidget();
 
-    // Paleta de colores para los rubros (independiente del color de la materia)
     const rubroColors = ['#5d7bff', '#2ecc8a', '#f5a623', '#ff5f72', '#a78bfa', '#34d399'];
 
     $('dash-cards').innerHTML = mats.map((m, i) => {
       const avg = Calc.materiaAvg(m);
       const covered = m.rubros.reduce((s, r) => s + (Calc.rubroAvg(r) !== null ? r.porcentaje : 0), 0);
       
-      // Aquí generamos los segmentos multicolor
       const bars = m.rubros.map((r, j) => {
         const hasData = Calc.rubroAvg(r) !== null;
         return `<div class="drb" style="flex:${r.porcentaje}; background: ${hasData ? rubroColors[j % rubroColors.length] : 'var(--bg3)'}"></div>`;
@@ -646,7 +644,7 @@ initSwipes() {
           <div><div style="font-size:16px;font-weight:500;margin-bottom:3px">${m.nombre || `Materia ${i + 1}`}</div><div style="font-size:12px;color:var(--text3)">${m.rubros.length} rubros · ${covered}% cubierto${totalPend > 0 ? ` · ${totalPend} pendiente${totalPend > 1 ? 's' : ''}` : ''}</div></div>
           <div style="text-align:right"><div class="big-grade ${gradeClass(avg)}" style="font-size:28px">${avg !== null ? fmt(avg) : '—'}</div><div class="badge ${avg !== null && avg >= State.minPass ? 'badge-green' : avg !== null ? 'badge-red' : ''}" style="margin-top:4px;">${badgeForGrade(avg)}</div></div>
         </div>
-        <div style="display:flex;align-items:center;gap:8px"><div class="pbar-wrap"><div class="pbar-fill" style="width:${covered}%;background:${m.color || 'var(--accent)'}"></div></div><span style="font-size:11px;color:var(--text3);font-family:var(--mono)">${covered}%</span></div>
+        <div style="display:flex;align-items:center;gap:8px"><div class="pbar-wrap"><div class="pbar-fill" style="width:${covered}%;background:${m.color || 'var(--accent)'}"></div></div><span style="font-size:11px;color:var(--accent);font-family:var(--mono);font-weight:500;">${covered}%</span></div>
         <div class="dash-rubros-bar">${bars}</div>
       </div>`;
     }).join('');
