@@ -313,15 +313,19 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
 .cal-dots { display:flex; gap:2px; margin-top:2px; }
 .cal-dot { width:4px; height:4px; border-radius:50%; }
 /* ── Paginación (Bolitas) ── */
+/* ── Paginación (Bolitas) ── */
 .swipe-dots { 
   position: fixed; 
-  bottom: calc(20px + var(--safe-bot)); 
+  bottom: 0; 
   left: 0; 
   width: 100%; 
+  padding: 16px 0 calc(16px + var(--safe-bot)); 
+  background: var(--bg); /* Fondo sólido del color de tu tema */
+  border-top: 1px solid var(--border); /* Línea sutil divisoria */
   display: flex; 
   justify-content: center; 
   gap: 8px; 
-  z-index: 999; /* Asegura que estén encima de todo */
+  z-index: 999; 
   pointer-events: none; 
 }
 .s-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border2); transition: background 0.3s, transform 0.3s; }
