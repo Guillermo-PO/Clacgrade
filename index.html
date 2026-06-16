@@ -1,222 +1,201 @@
 <!DOCTYPE html>
 <html lang="es">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="theme-color" content="#0f1117" />
-    <title>Calcgrade</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Sora:wght@300;400;500;600&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css" />
-  </head>
-  <body>
-    <div id="app">
-      <div id="s-loading" class="screen active">
-        <div class="spinner"></div>
-        <p style="font-size: 13px; color: var(--text3)">Cargando…</p>
-      </div>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>CalcGrade</title>
+  <link rel="stylesheet" href="styles.css">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
 
-      <div id="s-auth" class="screen">
-        <div class="landing-wrapper">
-          <div class="landing-hero">
-            <div class="auth-logo"><strong>Calc</strong>Grade</div>
-            <h1 class="landing-title">Toma el control de tu semestre</h1>
-            <p class="landing-desc">
-              Tu calculadora escolar inteligente. Simula tus promedios, descubre exactamente qué necesitas para aprobar y organiza todas tus materias en un solo lugar sin estrés.
-            </p>
-            
-            <div class="landing-features">
-              <div class="feat">
-                <span class="f-icon">🎯</span>
-                <div class="f-text">
-                  <strong>Simulador Objetivo</strong>
-                  <span>Calcula la calificación exacta que necesitas en tus trabajos pendientes.</span>
-                </div>
-              </div>
-              <div class="feat">
-                <span class="f-icon">📈</span>
-                <div class="f-text">
-                  <strong>Estadísticas y Analíticas</strong>
-                  <span>Visualiza tu progreso histórico con gráficas detalladas.</span>
-                </div>
-              </div>
-              <div class="feat">
-                <span class="f-icon">☁️</span>
-                <div class="f-text">
-                  <strong>Siempre Sincronizado</strong>
-                  <span>Tus datos seguros en la nube. Accede desde tu celular o computadora.</span>
-                </div>
+  <div id="app">
+    <header class="app-header">
+      <div class="logo"><strong>Calc</strong><span>Grade</span></div>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <span id="sync-indicator" class="sync-dot synced" title="Sincronizado"></span>
+        <button class="btn-icon" id="btn-theme" onclick="App.toggleTheme()">☼</button>
+        <button class="btn-ghost" id="btn-user-menu" onclick="Auth.showUserMenu()" style="display:none;">Perfil</button>
+      </div>
+    </header>
+
+    <div id="user-menu" style="display:none; position:absolute; top:60px; right:20px; background:var(--bg2); border:1px solid var(--border); padding:16px; border-radius:var(--r-md); z-index:200; box-shadow:0 10px 30px rgba(0,0,0,0.5);">
+      <p id="menu-email" style="font-size:13px; color:var(--text2); margin-bottom:12px;"></p>
+      <button class="btn-full" style="background:var(--red-bg); color:var(--red);" onclick="Auth.logout()">Cerrar sesión</button>
+      <button class="btn-ghost btn-full" style="margin-top:8px;" onclick="Auth.closeUserMenu()">Cerrar</button>
+    </div>
+
+    <div id="s-loading" class="screen">
+      <div class="spinner"></div>
+      <p style="color:var(--text3); font-size:13px;">Sincronizando...</p>
+    </div>
+
+    <div id="s-auth" class="screen active">
+      <div class="auth-layout">
+        <div class="auth-hero">
+          <div class="auth-logo"><strong>Calc</strong>Grade</div>
+          <span class="badge badge-blue" style="margin-bottom: 20px;">— EMPIEZA GRATIS</span>
+          <h1 class="auth-hero-title">Toma el control<br>de tu <span class="text-accent">semestre.</span></h1>
+          <p class="auth-hero-sub">Tu calculadora escolar inteligente. Simula promedios, descubre qué necesitas para aprobar y organiza tu vida académica sin estrés.</p>
+
+          <div class="auth-features">
+            <div class="feature-item">
+              <div class="feature-icon" style="background: var(--red-bg); color: var(--red);">🎯</div>
+              <div class="feature-text">
+                <strong>Simulador Objetivo</strong>
+                <p>Calcula exactamente qué necesitas en tus ítems pendientes.</p>
               </div>
             </div>
-          </div>
-
-          <div class="landing-login">
-            <p class="auth-quote" id="auth-quote"></p>
-            <div class="auth-box">
-              <div class="auth-tabs">
-                <button class="auth-tab active" id="tab-login" onclick="Auth.switchTab('login')">Iniciar sesión</button>
-                <button class="auth-tab" id="tab-signup" onclick="Auth.switchTab('signup')">Registrarse</button>
+            <div class="feature-item">
+              <div class="feature-icon" style="background: rgba(93,123,255,.15); color: var(--accent2);">📈</div>
+              <div class="feature-text">
+                <strong>Estadísticas Detalladas</strong>
+                <p>Visualiza tu progreso histórico con gráficas interactivas.</p>
               </div>
-              <div id="auth-form-wrap"></div>
-              <div class="auth-divider"><span>o</span></div>
-              <button class="btn-google" onclick="Auth.loginGoogle()">
-                <svg width="18" height="18" viewBox="0 0 48 48">
-                  <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.08 17.74 9.5 24 9.5z" />
-                  <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
-                  <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
-                  <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-3.59-13.46-8.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
-                </svg>
-                Continuar con Google
-              </button>
-              <div class="err-msg" id="auth-err"></div>
+            </div>
+            <div class="feature-item">
+              <div class="feature-icon" style="background: var(--green-bg); color: var(--green);">☁️</div>
+              <div class="feature-text">
+                <strong>Siempre Sincronizado</strong>
+                <p>Datos seguros en la nube, desde cualquier dispositivo.</p>
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <div id="s-setup" class="screen">
-        <div style="font-family: var(--mono); font-size: 13px; color: var(--text3); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 28px;">
-          <strong style="color: var(--accent2)">Calc</strong>Grade
-        </div>
-        <h1 style="font-size: 26px; font-weight: 600; margin-bottom: 8px">Configura tu semestre</h1>
-        <p style="font-size: 14px; color: var(--text2); margin-bottom: 36px; line-height: 1.6;">
-          Cuéntanos sobre tus materias para empezar
-        </p>
-        <div class="setup-box">
-          <div class="field">
-            <label>¿Cuántas materias tienes?</label>
-            <input type="number" id="inp-num-mat" min="1" max="20" value="4" />
-          </div>
-          <div class="field">
-            <label>Calificación mínima aprobatoria</label>
-            <input type="number" id="inp-min-pass" min="1" max="10" step="0.1" value="6.0" />
-          </div>
-          <button class="btn btn-full" onclick="App.startConfig()">Comenzar configuración →</button>
-        </div>
-      </div>
-
-      <div id="s-config" class="screen">
-        <div class="app-header">
-          <div class="logo">Calc<span>Grade</span></div>
-          <button class="btn-ghost btn-sm" onclick="App.resetAll()">✕ Cancelar</button>
-        </div>
-        <div class="container" style="padding-top: 24px">
-          <div id="cfg-stepper" class="config-stepper"></div>
-          <p id="cfg-step-label" style="font-size: 12px; color: var(--text3); margin-bottom: 20px"></p>
-          <div id="cfg-form"></div>
-          <div id="cfg-nav" style="display: flex; gap: 10px; margin-top: 24px; padding-bottom: 32px;"></div>
-        </div>
-      </div>
-
-      <div id="s-dashboard" class="screen">
-        <div class="app-header">
-          <div class="logo">Calc<span>Grade</span></div>
-          <div style="display: flex; align-items: center; gap: 8px">
-            <span id="sync-indicator" class="sync-dot synced" title="Sincronizado"></span>
-            <button class="btn-icon" onclick="App.openAnalytics()" title="Analíticas">📈</button>
-            <button class="btn-icon" id="btn-theme" onclick="App.toggleTheme()" title="Cambiar tema">☼</button>
-            <button class="btn-ghost btn-sm" id="btn-user-menu" onclick="Auth.showUserMenu()"></button>
-          </div>
-        </div>
-        <div class="container" style="padding-top: 20px">
-          <div style="margin-bottom: 20px">
-            <h2 style="font-size: 20px; font-weight: 600; margin-bottom: 4px">Mis Materias</h2>
-            <p id="dash-sub" style="font-size: 13px; color: var(--text3)"></p>
-          </div>
-          <div id="dash-summary" class="metrics"></div>
-          <div id="dash-cards"></div>
-          <button class="btn btn-full" onclick="App.openAddMateria()" style="margin-top: 4px">+ Agregar materia</button>
-          <button class="btn-ghost btn-full" onclick="App.exportCSV()" style="margin-top: 8px; font-size: 13px; color: var(--accent2)">
-            📥 Exportar datos (CSV)
-          </button>
-          <button class="btn-ghost btn-full" onclick="App.resetAll()" style="margin-top: 8px; font-size: 13px">↺ Nuevo semestre</button>
-        </div>
-      </div>
-
-      <div id="s-analytics" class="screen">
-        <div class="app-header">
-          <button class="btn-ghost btn-sm" onclick="App.goBack()">← Volver</button>
-          <div style="font-weight:600; font-size:15px">Analíticas</div>
-          <div style="width:70px"></div>
-        </div>
-        <div class="container" style="padding-top:20px">
-          <div class="card">
-            <p style="font-size:11px;font-weight:500;color:var(--text3);margin-bottom:12px;text-transform:uppercase;letter-spacing:.06em">Evolución del Promedio</p>
-            <canvas id="analyticsChart" width="400" height="250"></canvas>
-          </div>
-          
-          <div style="margin-top:24px; margin-bottom:12px;">
-            <h2 style="font-size:16px;font-weight:600;">Historial de Semestres</h2>
-          </div>
-          <div class="card" style="padding: 20px;">
-            <div style="display:flex; gap:10px; margin-bottom:16px">
-              <input type="text" id="hist-sem" placeholder="Ej: 2025-2" style="flex:2">
-              <input type="number" id="hist-prom" placeholder="8.5" step="0.1" min="0" max="10" style="flex:1; font-family:var(--mono);">
-              <button class="btn-icon" style="background:var(--accent);color:#fff" onclick="App.addHistory()">+</button>
+        <div class="auth-panel">
+          <div class="auth-box">
+            <div class="auth-tabs">
+              <button class="auth-tab active" id="tab-login" onclick="Auth.switchTab('login')">Iniciar sesión</button>
+              <button class="auth-tab" id="tab-signup" onclick="Auth.switchTab('signup')">Registrarse</button>
             </div>
-            <div id="history-list"></div>
+            <div id="auth-form-wrap"></div>
+            <div class="auth-divider"><span>o continúa con</span></div>
+            <button class="btn-google" onclick="Auth.loginGoogle()">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+              Google
+            </button>
+            <div class="auth-err err-msg" id="auth-err"></div>
+            <div class="auth-quote" id="auth-quote"></div>
           </div>
-        </div>
-      </div>
-
-      <div id="s-materia" class="screen">
-        <div class="app-header">
-          <button class="btn-ghost btn-sm" onclick="App.goBack()">← Materias</button>
-          <div style="display: flex; align-items: center; gap: 8px">
-            <div id="mat-header-badge"></div>
-            <button class="btn-icon" onclick="App.deleteMateria()" title="Eliminar materia" style="color: var(--red); background: var(--red-bg); flex-shrink: 0;">🗑</button>
-          </div>
-        </div>
-        <div class="container">
-          <div id="mat-detail"></div>
-        </div>
-      </div>
-
-      <div id="add-materia-modal" class="modal-overlay hidden" onclick="App.closeAddMateria(event)">
-        <div class="modal-sheet" onclick="event.stopPropagation()">
-          <div class="modal-handle"></div>
-          <p class="modal-title">Nueva materia</p>
-          <div class="field">
-            <label>Nombre de la materia</label>
-            <input type="text" id="add-mat-nombre" placeholder="Ej: Álgebra Lineal" />
-          </div>
-          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
-            <div>
-              <p style="font-size: 14px; font-weight: 500">Rubros de evaluación</p>
-              <p style="font-size: 12px; color: var(--text3)">Deben sumar 100%</p>
-            </div>
-            <button class="btn-ghost btn-sm" onclick="App.addModalRubro()">+ Rubro</button>
-          </div>
-          <div id="add-mat-rubros"></div>
-          <div style="display: flex; align-items: center; gap: 10px; margin-top: 10px; margin-bottom: 4px;">
-            <span style="font-size: 13px; color: var(--text3)">Total</span>
-            <div class="pbar-wrap">
-              <div class="pbar-fill" id="add-pbar" style="width: 0%"></div>
-            </div>
-            <span id="add-ptotal" style="font-family: var(--mono); font-size: 13px; min-width: 40px; text-align: right;"></span>
-          </div>
-          <div class="err-msg" id="add-mat-err"></div>
-          <div style="display: flex; gap: 10px; margin-top: 16px">
-            <button class="btn-ghost" style="flex: 1" onclick="App.closeAddMateria()">Cancelar</button>
-            <button class="btn" style="flex: 2" onclick="App.saveNewMateria()">Guardar materia ✓</button>
-          </div>
-        </div>
-      </div>
-
-      <div id="user-menu" style="display: none; position: fixed; inset: 0; z-index: 500; background: rgba(0, 0, 0, 0.6);" onclick="Auth.closeUserMenu()">
-        <div onclick="event.stopPropagation()" style="position: absolute; top: 60px; right: 16px; background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--r-lg); padding: 16px; min-width: 220px;">
-          <p id="menu-email" style="font-size: 13px; color: var(--text2); margin-bottom: 14px; word-break: break-all;"></p>
-          <button class="btn-ghost btn-full" onclick="Auth.logout()" style="color: var(--red)">Cerrar sesión</button>
         </div>
       </div>
     </div>
-    <div class="toast" id="toast"></div>
 
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="config.js"></script>
-    <script src="app.js"></script>
-  </body>
+    <div id="s-setup" class="screen">
+      <div class="container" style="display:flex;flex-direction:column;align-items:center;padding-top:40px;">
+        <div class="setup-box">
+          <h2 style="font-size:20px;margin-bottom:10px;">¡Bienvenido!</h2>
+          <p style="font-size:14px;color:var(--text2);margin-bottom:24px;">Configuremos tu semestre para empezar.</p>
+          <div class="field">
+            <label>¿Cuántas materias cursas?</label>
+            <input type="number" id="inp-num-mat" value="4" min="1" max="20" style="text-align:center;">
+          </div>
+          <div class="field">
+            <label>Calificación mínima aprobatoria</label>
+            <input type="number" id="inp-min-pass" value="6.0" min="1" max="10" step="0.1" style="text-align:center;">
+          </div>
+          <button class="btn btn-full" onclick="App.startConfig()">Comenzar →</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="s-config" class="screen">
+      <div class="container" style="padding-top:20px;">
+        <div class="config-stepper" id="cfg-stepper"></div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:20px;" id="cfg-step-label"></div>
+        <div class="card" id="cfg-form"></div>
+        <div style="display:flex;gap:10px;margin-top:20px;">
+          <button class="btn-ghost" onclick="App.cfgPrev()" style="flex:1">Atrás</button>
+          <button class="btn" onclick="App.cfgNext()" id="cfg-nav" style="flex:2"></button>
+        </div>
+      </div>
+    </div>
+
+    <div id="s-dashboard" class="screen">
+      <div class="container" style="padding-top:20px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:20px;">
+          <div>
+            <h1 style="font-size:24px;font-weight:600;margin-bottom:4px;">Tu Semestre</h1>
+            <p style="font-size:13px;color:var(--text2);" id="dash-sub"></p>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn-icon" onclick="App.exportCSV()" title="Exportar CSV">↓</button>
+            <button class="btn-icon" onclick="App.openAnalytics()" title="Analíticas">📈</button>
+            <button class="btn-icon" onclick="App.openAddMateria()" title="Agregar Materia">+</button>
+          </div>
+        </div>
+        <div class="metrics" id="dash-summary"></div>
+        <div id="dash-cards"></div>
+        <div style="margin-top:40px;text-align:center;">
+          <button class="btn-ghost" onclick="App.resetAll()" style="color:var(--red);">⚠️ Reiniciar Semestre</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="s-materia" class="screen">
+      <div class="container" style="padding-top:20px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+          <button class="btn-ghost" onclick="App.goBack()">← Volver</button>
+          <div id="mat-header-badge"></div>
+          <button class="btn-icon" style="color:var(--red);" onclick="App.deleteMateria()">🗑</button>
+        </div>
+        <div id="mat-detail"></div>
+      </div>
+    </div>
+
+    <div id="s-analytics" class="screen">
+      <div class="container" style="padding-top:20px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+          <button class="btn-ghost" onclick="App.goBack()">← Volver</button>
+          <h2 style="font-size:18px;">Rendimiento Histórico</h2>
+        </div>
+        <div class="card" style="padding:16px;">
+          <canvas id="analyticsChart" style="width:100%; height:220px;"></canvas>
+        </div>
+        <div class="card">
+          <h3 style="font-size:14px;margin-bottom:16px;">Agregar Semestre Anterior</h3>
+          <div style="display:grid;grid-template-columns:1fr 100px;gap:10px;margin-bottom:12px;">
+            <div class="field" style="margin:0;"><input type="text" id="hist-sem" placeholder="Ej: 3er Semestre"></div>
+            <div class="field" style="margin:0;"><input type="number" id="hist-prom" placeholder="Promedio" min="0" max="10" step="0.1"></div>
+          </div>
+          <button class="btn btn-full btn-sm" onclick="App.addHistory()">+ Guardar al historial</button>
+        </div>
+        <div class="card">
+          <h3 style="font-size:14px;margin-bottom:16px;">Historial de Semestres</h3>
+          <div id="history-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="add-materia-modal" class="modal-overlay hidden" onclick="App.closeAddMateria(event)">
+      <div class="modal-sheet">
+        <div class="modal-handle"></div>
+        <h2 class="modal-title">Nueva Materia</h2>
+        <div class="field">
+          <label>Nombre de la materia</label>
+          <input type="text" id="add-mat-nombre" placeholder="Ej: Álgebra Lineal">
+        </div>
+        <div style="display:flex;justify-content:space-between;margin:20px 0 10px;">
+          <span style="font-size:13px;font-weight:500;">Rubros de evaluación</span>
+          <button class="btn-ghost btn-sm" onclick="App.addModalRubro()">+ Agregar</button>
+        </div>
+        <div id="add-mat-rubros"></div>
+        <div style="display:flex;align-items:center;gap:10px;margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
+          <span style="font-size:13px;color:var(--text3);">Total</span>
+          <div class="pbar-wrap"><div class="pbar-fill" id="add-pbar" style="width:0%;"></div></div>
+          <span id="add-ptotal" style="font-family:var(--mono);font-size:14px;text-align:right;"></span>
+        </div>
+        <div id="add-mat-err" class="err-msg"></div>
+        <button class="btn btn-full" style="margin-top:20px;" onclick="App.saveNewMateria()">Guardar Materia</button>
+      </div>
+    </div>
+
+    <div id="toast" class="toast"></div>
+  </div>
+  
+  <script src="app.js"></script>
+</body>
 </html>
