@@ -612,7 +612,7 @@ initSwipes() {
     }
   },
 
-  buildDashboard() {
+ buildDashboard() {
     const mats = State.materias; const btn = $('btn-user-menu');
     if (btn) btn.textContent = State.user?.email?.split('@')[0] ?? 'Perfil';
     $('dash-sub').textContent = `${mats.length} materias · Mínimo aprobatorio: ${State.minPass.toFixed(1)}`;
@@ -626,11 +626,19 @@ initSwipes() {
     
     App.updateDashboardWidget();
 
-    // Las materias ahora usan su propio color en el borde izquierdo
+    // Paleta de colores para los rubros (independiente del color de la materia)
+    const rubroColors = ['#5d7bff', '#2ecc8a', '#f5a623', '#ff5f72', '#a78bfa', '#34d399'];
+
     $('dash-cards').innerHTML = mats.map((m, i) => {
       const avg = Calc.materiaAvg(m);
       const covered = m.rubros.reduce((s, r) => s + (Calc.rubroAvg(r) !== null ? r.porcentaje : 0), 0);
-      const bars = m.rubros.map((r, j) => `<div class="drb" style="flex:${r.porcentaje};background: ${Calc.rubroAvg(r) !== null ? (m.color || 'var(--accent)') : 'var(--bg3)'}"></div>`).join('');
+      
+      // Aquí generamos los segmentos multicolor
+      const bars = m.rubros.map((r, j) => {
+        const hasData = Calc.rubroAvg(r) !== null;
+        return `<div class="drb" style="flex:${r.porcentaje}; background: ${hasData ? rubroColors[j % rubroColors.length] : 'var(--bg3)'}"></div>`;
+      }).join('');
+      
       const totalPend = m.rubros.reduce((s, r) => s + (r.pendientes ?? 0), 0);
       
       return `<div class="card card-clickable" style="border-left: 4px solid ${m.color || 'var(--accent)'};" onclick="App.openMateria(${i})">
