@@ -11,6 +11,7 @@
 </head>
 <body>
 
+  <!-- APP SHELL -->
   <div id="app">
     <header class="app-header">
       <div class="logo"><strong>Calc</strong><span>Grade</span></div>
@@ -21,17 +22,20 @@
       </div>
     </header>
 
+    <!-- MENÚ DESPLEGABLE DE USUARIO -->
     <div id="user-menu" style="display:none; position:absolute; top:60px; right:20px; background:var(--bg2); border:1px solid var(--border); padding:16px; border-radius:var(--r-md); z-index:9999; box-shadow:0 10px 30px rgba(0,0,0,0.5);">
       <p id="menu-email" style="font-size:13px; color:var(--text2); margin-bottom:12px;"></p>
       <button class="btn btn-full" style="background:var(--red-bg); color:var(--red);" onclick="Auth.logout()">Cerrar sesión</button>
       <button class="btn-ghost btn-full" style="margin-top:8px;" onclick="Auth.closeUserMenu()">Cerrar</button>
     </div>
 
+    <!-- PANTALLA: CARGA -->
     <div id="s-loading" class="screen">
       <div class="spinner"></div>
       <p style="color:var(--text3); font-size:13px;">Sincronizando...</p>
     </div>
 
+    <!-- PANTALLA: AUTENTICACIÓN (LANDING PAGE SPLIT-SCREEN) -->
     <div id="s-auth" class="screen active">
       <div class="auth-layout">
         <div class="auth-hero">
@@ -39,18 +43,28 @@
           <span class="badge badge-blue" style="margin-bottom: 20px;">— EMPIEZA GRATIS</span>
           <h1 class="auth-hero-title">Toma el control<br>de tu <span class="text-accent">semestre.</span></h1>
           <p class="auth-hero-sub">Tu calculadora escolar inteligente. Simula promedios, descubre qué necesitas para aprobar y organiza tu vida académica sin estrés.</p>
+
           <div class="auth-features">
             <div class="feature-item">
               <div class="feature-icon" style="background: var(--red-bg); color: var(--red);">🎯</div>
-              <div class="feature-text"><strong>Simulador Objetivo</strong><p>Calcula exactamente qué necesitas en tus ítems pendientes.</p></div>
+              <div class="feature-text">
+                <strong>Simulador Objetivo</strong>
+                <p>Calcula exactamente qué necesitas en tus ítems pendientes.</p>
+              </div>
             </div>
             <div class="feature-item">
               <div class="feature-icon" style="background: rgba(93,123,255,.15); color: var(--accent2);">📈</div>
-              <div class="feature-text"><strong>Estadísticas Detalladas</strong><p>Visualiza tu progreso histórico con gráficas interactivas.</p></div>
+              <div class="feature-text">
+                <strong>Estadísticas Detalladas</strong>
+                <p>Visualiza tu progreso histórico con gráficas interactivas.</p>
+              </div>
             </div>
             <div class="feature-item">
               <div class="feature-icon" style="background: var(--green-bg); color: var(--green);">☁️</div>
-              <div class="feature-text"><strong>Siempre Sincronizado</strong><p>Datos seguros en la nube, desde cualquier dispositivo.</p></div>
+              <div class="feature-text">
+                <strong>Siempre Sincronizado</strong>
+                <p>Datos seguros en la nube, desde cualquier dispositivo.</p>
+              </div>
             </div>
           </div>
         </div>
@@ -74,6 +88,7 @@
       </div>
     </div>
 
+    <!-- PANTALLA: CONFIGURACIÓN INICIAL -->
     <div id="s-setup" class="screen">
       <div class="container" style="display:flex;flex-direction:column;align-items:center;padding-top:40px;">
         <div class="setup-box">
@@ -92,6 +107,7 @@
       </div>
     </div>
 
+    <!-- PANTALLA: ASISTENTE DE MATERIAS -->
     <div id="s-config" class="screen">
       <div class="container" style="padding-top:20px;">
         <div class="config-stepper" id="cfg-stepper"></div>
@@ -104,7 +120,8 @@
       </div>
     </div>
 
-    <div id="s-dashboard" class="screen slide-screen">
+    <!-- PANTALLA: DASHBOARD PRINCIPAL -->
+    <div id="s-dashboard" class="screen">
       <div class="container" style="padding-top:20px;">
         <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:20px;">
           <div>
@@ -119,31 +136,50 @@
         </div>
         <div class="metrics" id="dash-summary"></div>
         
-        <div id="s-agenda" class="screen slide-screen">
+        <!-- Tarjeta resumen de agenda en el Dashboard -->
+        <div id="dash-agenda-widget" class="card card-clickable" style="display:none; margin-bottom:14px; background:var(--bg3);" onclick="Agenda.openAgenda()">
+           <div style="display:flex; align-items:center; gap:12px;">
+             <div style="font-size:20px;">📅</div>
+             <div>
+               <div style="font-size:14px; font-weight:500;" id="dash-agenda-text">Tienes tareas pendientes</div>
+               <div style="font-size:12px; color:var(--text3);">Desliza a la derecha o toca aquí para ver tu agenda.</div>
+             </div>
+           </div>
+        </div>
+
+        <div id="dash-cards"></div>
+        <div style="margin-top:40px;text-align:center;">
+          <button class="btn-ghost" onclick="App.resetAll()" style="color:var(--red);">⚠️ Reiniciar Semestre</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PANTALLA: AGENDA (NUEVA) -->
+    <div id="s-agenda" class="screen">
       <div class="container" style="padding-top:20px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
           <h1 style="font-size:24px;font-weight:600;">Agenda</h1>
           <button class="btn-icon" onclick="Agenda.openAddEvent()" title="Agregar Pendiente">+</button>
         </div>
         
-        <div class="agenda-toggle">
-          <button class="at-btn active" id="btn-view-agenda" onclick="Agenda.switchView('list')">Lista</button>
-          <button class="at-btn" id="btn-view-cal" onclick="Agenda.switchView('calendar')">Calendario</button>
+        <div class="agenda-toggle" style="display:flex; background:var(--bg3); border-radius:var(--r-md); padding:4px; margin-bottom:20px;">
+          <button class="auth-tab active" id="btn-view-agenda" onclick="Agenda.switchView('list')" style="flex:1;">Lista</button>
+          <button class="auth-tab" id="btn-view-cal" onclick="Agenda.switchView('calendar')" style="flex:1;">Calendario</button>
         </div>
 
         <div id="agenda-list-view"></div>
         
         <div id="agenda-cal-view" style="display:none;">
-          <div class="card cal-card">
-            <div class="cal-header">
+          <div class="card cal-card" style="padding:16px;">
+            <div class="cal-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
               <button class="btn-ghost btn-sm" onclick="Agenda.changeMonth(-1)">←</button>
               <span id="cal-month-year" style="font-weight:600; font-size:15px; text-transform:capitalize;"></span>
               <button class="btn-ghost btn-sm" onclick="Agenda.changeMonth(1)">→</button>
             </div>
-            <div class="cal-days-header">
+            <div class="cal-days-header" style="display:grid; grid-template-columns:repeat(7, 1fr); text-align:center; font-size:11px; color:var(--text3); margin-bottom:8px; text-transform:uppercase; letter-spacing:.05em;">
               <span>Dom</span><span>Lun</span><span>Mar</span><span>Mié</span><span>Jue</span><span>Vie</span><span>Sáb</span>
             </div>
-            <div class="cal-grid" id="cal-grid"></div>
+            <div class="cal-grid" id="cal-grid" style="display:grid; grid-template-columns:repeat(7, 1fr); gap:4px;"></div>
           </div>
           <h3 style="font-size:14px; margin:20px 0 10px;" id="cal-selected-date"></h3>
           <div id="cal-selected-events"></div>
@@ -155,6 +191,7 @@
       </div>
     </div>
 
+    <!-- PANTALLA: DETALLE DE MATERIA -->
     <div id="s-materia" class="screen">
       <div class="container" style="padding-top:20px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
@@ -166,7 +203,8 @@
       </div>
     </div>
 
-    <div id="s-analytics" class="screen slide-screen">
+    <!-- PANTALLA: ANALÍTICAS -->
+    <div id="s-analytics" class="screen">
       <div class="container" style="padding-top:20px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
           <button class="btn-ghost" onclick="App.goBack()">← Volver</button>
@@ -190,6 +228,7 @@
       </div>
     </div>
 
+    <!-- MODAL: AGREGAR MATERIA -->
     <div id="add-materia-modal" class="modal-overlay hidden" onclick="App.closeAddMateria(event)">
       <div class="modal-sheet">
         <div class="modal-handle"></div>
@@ -198,10 +237,13 @@
           <label>Nombre de la materia</label>
           <input type="text" id="add-mat-nombre" placeholder="Ej: Álgebra Lineal">
         </div>
+        
+        <!-- NUEVO: Selector de Color -->
         <div class="field">
           <label>Color de la materia</label>
-          <div class="color-picker" id="add-mat-colors"></div>
+          <div id="add-mat-colors" style="display: flex; gap: 10px; flex-wrap: wrap;"></div>
         </div>
+
         <div style="display:flex;justify-content:space-between;margin:20px 0 10px;">
           <span style="font-size:13px;font-weight:500;">Rubros de evaluación</span>
           <button class="btn-ghost btn-sm" onclick="App.addModalRubro()">+ Agregar</button>
@@ -217,6 +259,7 @@
       </div>
     </div>
 
+    <!-- MODAL: AGREGAR EVENTO AGENDA (NUEVO) -->
     <div id="add-event-modal" class="modal-overlay hidden" onclick="Agenda.closeAddEvent(event)">
       <div class="modal-sheet">
         <div class="modal-handle"></div>
@@ -227,12 +270,12 @@
         </div>
         <div class="field">
           <label>Materia</label>
-          <select id="ev-materia" class="select-input"></select>
+          <select id="ev-materia" style="width:100%; padding:12px 14px; background:var(--bg2); border:1px solid var(--border); border-radius:var(--r-md); color:var(--text); font-family:var(--sans); font-size:15px; -webkit-appearance:none;"></select>
         </div>
         <div style="display:flex; gap:12px;">
           <div class="field" style="flex:1;">
             <label>Tipo</label>
-            <select id="ev-type" class="select-input">
+            <select id="ev-type" style="width:100%; padding:12px 14px; background:var(--bg2); border:1px solid var(--border); border-radius:var(--r-md); color:var(--text); font-family:var(--sans); font-size:15px; -webkit-appearance:none;">
               <option value="📝 Tarea">📝 Tarea</option>
               <option value="📊 Proyecto">📊 Proyecto</option>
               <option value="🧠 Examen">🧠 Examen</option>
@@ -241,7 +284,7 @@
           </div>
           <div class="field" style="flex:1;">
             <label>Fecha Límite</label>
-            <input type="date" id="ev-date" class="select-input">
+            <input type="date" id="ev-date" style="width:100%; padding:12px 14px; background:var(--bg2); border:1px solid var(--border); border-radius:var(--r-md); color:var(--text); font-family:var(--sans); font-size:15px; -webkit-appearance:none;">
           </div>
         </div>
         <div id="ev-err" class="err-msg"></div>
