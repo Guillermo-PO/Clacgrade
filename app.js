@@ -26,17 +26,26 @@ function getRandomQuote() { return QUOTES[Math.floor(Math.random() * QUOTES.leng
 
 // ── STATE ───────────────────────────────────────────
 const State = {
-  user: null, materias: [], historial: [], configIdx: 0,
+  user: null, materias: [], historial: [], agenda: [], configIdx: 0, // <-- agenda añadida
   totalMaterias: 0, minPass: 6.0, activeMateria: 0, syncTimer: null,
 };
+
+// Paleta de colores para las materias
+const PALETTE = ['#5d7bff', '#2ecc8a', '#f5a623', '#ff5f72', '#a78bfa', '#34d399', '#f472b6', '#fbbf24'];
 
 // ── UTILS ───────────────────────────────────────────
 const $ = (id) => document.getElementById(id);
 const fmt = (n, dec = 2) => isNaN(n) || n === null ? '—' : parseFloat(n).toFixed(dec);
 
-function showScreen(id) {
-  document.querySelectorAll('.screen').forEach((s) => s.classList.remove('active'));
-  $(id).classList.add('active');
+function showScreen(id, animClass = null) {
+  document.querySelectorAll('.screen').forEach((s) => {
+    s.classList.remove('active', 'slide-in-right', 'slide-in-left');
+  });
+  const target = $(id);
+  if (target) {
+    target.classList.add('active');
+    if (animClass) target.classList.add(animClass);
+  }
 }
 
 function toast(msg, dur = 2400) {
@@ -84,7 +93,8 @@ const DB = {
 function scheduleSave() {
   clearTimeout(State.syncTimer); setSyncState('syncing');
   State.syncTimer = setTimeout(async () => {
-    await DB.save({ materias: State.materias, minPass: State.minPass, historial: State.historial });
+    // Se añade agenda al guardado
+    await DB.save({ materias: State.materias, minPass: State.minPass, historial: State.historial, agenda: State.agenda });
   }, 1200);
 }
 
@@ -116,7 +126,10 @@ const Auth = {
   async afterLogin() {
     showScreen('s-loading'); const saved = await DB.load();
     if (saved) {
-      State.materias = saved.materias || []; State.historial = saved.historial || []; State.minPass = saved.minPass ?? 6.0;
+      State.materias = saved.materias || []; 
+      State.historial = saved.historial || []; 
+      State.agenda = saved.agenda || []; // <-- Cargamos agenda
+      State.minPass = saved.minPass ?? 6.0;
     }
     
     const btn = $('btn-user-menu');
@@ -249,17 +262,134 @@ const Calc = {
   },
 };
 
+// ── AGENDA MODULE (NUEVO) ───────────────────────────
+const Agenda = {
+  view: 'list', currentDate: new Date(), selectedDate: new Date(),
+  openAgenda() { showScreen('s-agenda', 'slide-in-right'); this.render(); },
+  switchView(v) {
+    this.view = v;
+    $('btn-view-agenda').classList.toggle('active', v === 'list');
+    $('btn-view-cal').classList.toggle('active', v === 'calendar');
+    $('agenda-list-view').style.display = v === 'list' ? 'block' : 'none';
+    $('agenda-cal-view').style.display = v === 'calendar' ? 'block' : 'none';
+    this.render();
+  },
+  render() { if (this.view === 'list') this.renderList(); else this.renderCalendar(); },
+  renderList() {
+    const list = $('agenda-list-view'); let html = '';
+    const pending = State.agenda.filter(e => !e.completado).sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
+    const done = State.agenda.filter(e => e.completado).sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
+    
+    if (!pending.length && !done.length) {
+      list.innerHTML = `<div style="text-align:center; padding:40px 20px; color:var(--text3);"><div style="font-size:32px; margin-bottom:10px;">☕</div><p>Tu agenda está libre.</p></div>`; return;
+    }
+    pending.forEach(e => html += this.buildEventCard(e));
+    if (done.length > 0) {
+      html += `<h3 style="font-size:13px; color:var(--text3); margin:24px 0 12px; text-transform:uppercase; letter-spacing:1px;">Completados</h3>`;
+      done.forEach(e => html += this.buildEventCard(e));
+    }
+    list.innerHTML = html;
+  },
+  buildEventCard(e) {
+    const mat = State.materias[e.materiaIdx]; const color = mat?.color || 'var(--border)';
+    const dateStr = new Date(e.fecha + 'T12:00:00').toLocaleDateString('es-ES', { month: 'short', day: 'numeric' });
+    return `
+      <div class="ev-card ${e.completado ? 'done' : ''}" style="border-left-color:${color};">
+        <div class="ev-info">
+          <div class="ev-title" style="${e.completado ? 'text-decoration:line-through;' : ''}">${e.titulo}</div>
+          <div class="ev-meta"><span style="color:${color}; font-weight:500;">${mat?.nombre || 'Materia Eliminada'}</span><span>•</span><span>${e.tipo}</span><span>•</span><span>📅 ${dateStr}</span></div>
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button class="btn-icon" style="color:var(--text); background:${e.completado ? 'var(--green-bg)' : 'var(--bg3)'};" onclick="Agenda.toggleDone('${e.id}')">${e.completado ? '✓' : '○'}</button>
+          <button class="btn-icon" style="color:var(--red);" onclick="Agenda.deleteEvent('${e.id}')">🗑</button>
+        </div>
+      </div>
+    `;
+  },
+  changeMonth(dir) { this.currentDate.setMonth(this.currentDate.getMonth() + dir); this.renderCalendar(); },
+  renderCalendar() {
+    const year = this.currentDate.getFullYear(); const month = this.currentDate.getMonth();
+    const monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    $('cal-month-year').textContent = `${monthNames[month]} ${year}`;
+    const firstDay = new Date(year, month, 1).getDay(); const daysInMonth = new Date(year, month + 1, 0).getDate();
+    let gridHtml = ''; for (let i = 0; i < firstDay; i++) gridHtml += `<div class="cal-day empty"></div>`;
+    const today = new Date();
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      const isToday = d === today.getDate() && month === today.getMonth() && year === today.getFullYear();
+      const isSelected = d === this.selectedDate.getDate() && month === this.selectedDate.getMonth() && year === this.selectedDate.getFullYear();
+      const dayEvents = State.agenda.filter(e => e.fecha === dateStr && !e.completado);
+      let dotsHtml = '';
+      if (dayEvents.length > 0) {
+        dotsHtml = '<div class="cal-dots">';
+        dayEvents.slice(0, 3).forEach(e => { dotsHtml += `<div class="cal-dot" style="background:${State.materias[e.materiaIdx]?.color || 'var(--accent)'};"></div>`; });
+        dotsHtml += '</div>';
+      }
+      gridHtml += `<div class="cal-day ${isToday ? 'today' : ''} ${isSelected ? 'selected' : ''}" onclick="Agenda.selectDate(${year}, ${month}, ${d})">${d}${dotsHtml}</div>`;
+    }
+    $('cal-grid').innerHTML = gridHtml; this.renderSelectedDateEvents();
+  },
+  selectDate(y, m, d) { this.selectedDate = new Date(y, m, d); this.renderCalendar(); },
+  renderSelectedDateEvents() {
+    const dateStr = `${this.selectedDate.getFullYear()}-${String(this.selectedDate.getMonth() + 1).padStart(2, '0')}-${String(this.selectedDate.getDate()).padStart(2, '0')}`;
+    const displayDate = this.selectedDate.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+    $('cal-selected-date').textContent = displayDate.charAt(0).toUpperCase() + displayDate.slice(1);
+    const dayEvents = State.agenda.filter(e => e.fecha === dateStr);
+    if (!dayEvents.length) { $('cal-selected-events').innerHTML = '<p style="font-size:13px; color:var(--text3);">No hay eventos este día.</p>'; return; }
+    let html = ''; dayEvents.forEach(e => html += this.buildEventCard(e)); $('cal-selected-events').innerHTML = html;
+  },
+  openAddEvent() {
+    if (!State.materias.length) { toast('Agrega una materia primero'); return; }
+    $('ev-title').value = ''; const dateStr = `${this.selectedDate.getFullYear()}-${String(this.selectedDate.getMonth() + 1).padStart(2, '0')}-${String(this.selectedDate.getDate()).padStart(2, '0')}`;
+    $('ev-date').value = dateStr; $('ev-materia').innerHTML = State.materias.map((m, i) => `<option value="${i}">${m.nombre || 'Materia ' + (i+1)}</option>`).join('');
+    $('add-event-modal').classList.remove('hidden');
+  },
+  closeAddEvent(e) { if (e && e.target !== $('add-event-modal')) return; $('add-event-modal').classList.add('hidden'); },
+  saveEvent() {
+    const title = $('ev-title').value.trim(); if (!title) { toast('Agrega un título'); return; }
+    State.agenda.push({ id: Date.now().toString(), titulo: title, materiaIdx: parseInt($('ev-materia').value), tipo: $('ev-type').value, fecha: $('ev-date').value, completado: false });
+    scheduleSave(); this.closeAddEvent(); this.render(); App.updateDashboardWidget(); toast('Guardado en Agenda');
+  },
+  toggleDone(id) { const ev = State.agenda.find(e => e.id === id); if (ev) ev.completado = !ev.completado; scheduleSave(); this.render(); App.updateDashboardWidget(); },
+  deleteEvent(id) { State.agenda = State.agenda.filter(e => e.id !== id); scheduleSave(); this.render(); App.updateDashboardWidget(); }
+};
+
 // ── APP ─────────────────────────────────────────────
 let analyticsChartInstance = null;
 const App = {
+  _activeMatColor: PALETTE[0],
+
   initSwipes() {
     let touchStartX = 0; const thresh = 80;
+    
+    // Dashboard Swipe
     const dash = document.getElementById('s-dashboard');
-    dash.addEventListener('touchstart', (e) => { touchStartX = e.changedTouches[0].screenX; }, { passive: true });
-    dash.addEventListener('touchend', (e) => { if (touchStartX - e.changedTouches[0].screenX > thresh) App.openAnalytics(); }, { passive: true });
+    if(dash) {
+      dash.addEventListener('touchstart', (e) => { touchStartX = e.changedTouches[0].screenX; }, { passive: true });
+      dash.addEventListener('touchend', (e) => { 
+        const diff = touchStartX - e.changedTouches[0].screenX;
+        if (diff > thresh) App.openAnalytics(); // Izquierda -> Analíticas
+        else if (diff < -thresh) Agenda.openAgenda(); // Derecha -> Agenda
+      }, { passive: true });
+    }
+    
+    // Analíticas Swipe
     const anal = document.getElementById('s-analytics');
-    anal.addEventListener('touchstart', (e) => { touchStartX = e.changedTouches[0].screenX; }, { passive: true });
-    anal.addEventListener('touchend', (e) => { if (e.changedTouches[0].screenX - touchStartX > thresh) showScreen('s-dashboard'); }, { passive: true });
+    if(anal) {
+      anal.addEventListener('touchstart', (e) => { touchStartX = e.changedTouches[0].screenX; }, { passive: true });
+      anal.addEventListener('touchend', (e) => { 
+        if (e.changedTouches[0].screenX - touchStartX > thresh) showScreen('s-dashboard', 'slide-in-left'); 
+      }, { passive: true });
+    }
+
+    // Agenda Swipe
+    const agenda = document.getElementById('s-agenda');
+    if (agenda) {
+      agenda.addEventListener('touchstart', (e) => { touchStartX = e.changedTouches[0].screenX; }, { passive: true });
+      agenda.addEventListener('touchend', (e) => { 
+        if (touchStartX - e.changedTouches[0].screenX > thresh) showScreen('s-dashboard', 'slide-in-left'); 
+      }, { passive: true });
+    }
   },
   
   exportCSV() {
@@ -297,7 +427,7 @@ const App = {
     URL.revokeObjectURL(url); toast('Archivo descargado');
   },
 
-  openAnalytics() { showScreen('s-analytics'); App.renderHistoryList(); App.renderChart(); },
+  openAnalytics() { showScreen('s-analytics', 'slide-in-right'); App.renderHistoryList(); App.renderChart(); },
   addHistory() {
     const sem = $('hist-sem').value.trim(); const prom = parseFloat($('hist-prom').value);
     if (!sem) { toast('Escribe el semestre'); return; }
@@ -347,18 +477,26 @@ const App = {
 
   resetAll() {
     if (!confirm('¿Borrar toda la configuración de materias y empezar de nuevo? El historial de analíticas se mantendrá.')) return;
-    State.materias = []; DB.save({ materias: [], minPass: State.minPass, historial: State.historial }); showScreen('s-setup');
+    State.materias = []; State.agenda = [];
+    DB.save({ materias: [], minPass: State.minPass, historial: State.historial, agenda: [] }); 
+    showScreen('s-setup');
   },
   startConfig() {
     const n = parseInt($('inp-num-mat').value) || 4; const mp = parseFloat($('inp-min-pass').value) || 6.0;
     State.totalMaterias = Math.max(1, Math.min(20, n)); State.minPass = Math.max(1, Math.min(10, mp)); State.materias = [];
     State.configIdx = 0; App.buildConfigForm(); showScreen('s-config');
   },
+
+  renderConfigColors() {
+    return PALETTE.map(c => `<div class="color-dot ${State.materias[State.configIdx].color === c ? 'active' : ''}" style="background:${c};" onclick="App.setConfigColor('${c}')"></div>`).join('');
+  },
+  setConfigColor(c) { State.materias[State.configIdx].color = c; App.buildConfigForm(); },
+
   buildConfigForm() {
     const idx = State.configIdx; const total = State.totalMaterias;
     if (!State.materias[idx]) {
       State.materias[idx] = {
-        nombre: '', redondeo: false, redondeoUmbral: 0.5, rubros: [
+        nombre: '', color: PALETTE[idx % PALETTE.length], redondeo: false, redondeoUmbral: 0.5, rubros: [
           { nombre: 'Exámenes', porcentaje: 60, calificaciones: [], pendientes: 0 },
           { nombre: 'Tareas', porcentaje: 20, calificaciones: [], pendientes: 0 },
           { nombre: 'Proyecto', porcentaje: 20, calificaciones: [], pendientes: 0 },
@@ -377,6 +515,7 @@ const App = {
     `).join('');
     $('cfg-form').innerHTML = `
       <div class="field"><label>Nombre de la materia</label><input type="text" id="cfg-mat-name" value="${mat.nombre}" placeholder="Ej: Cálculo Diferencial" oninput="State.materias[State.configIdx].nombre=this.value.trim()"></div>
+      <div class="field"><label>Color de la materia</label><div class="color-picker">${this.renderConfigColors()}</div></div>
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
         <div><p style="font-size:14px;font-weight:500">Rubros de evaluación</p><p style="font-size:12px;color:var(--text3)">Los porcentajes deben sumar exactamente 100%</p></div>
         <button class="btn-ghost btn-sm" onclick="App.cfgAddRubro()">+ Agregar</button>
@@ -419,8 +558,20 @@ const App = {
   async cfgFinish() {
     if (!App.cfgValidate()) return;
     State.materias.forEach((m) => m.rubros.forEach((r) => { if (!r.calificaciones) r.calificaciones = []; if (r.pendientes === undefined) r.pendientes = 0; }));
-    await DB.save({ materias: State.materias, minPass: State.minPass, historial: State.historial });
+    await DB.save({ materias: State.materias, minPass: State.minPass, historial: State.historial, agenda: State.agenda });
     App.buildDashboard(); showScreen('s-dashboard');
+  },
+
+  updateDashboardWidget() {
+    const pending = State.agenda.filter(e => !e.completado);
+    const widget = $('dash-agenda-widget');
+    if (!widget) return;
+    if (pending.length > 0) {
+      widget.style.display = 'block';
+      $('dash-agenda-text').textContent = `Tienes ${pending.length} pendiente${pending.length>1?'s':''} en la agenda`;
+    } else {
+      widget.style.display = 'none';
+    }
   },
 
   buildDashboard() {
@@ -434,18 +585,22 @@ const App = {
       <div class="metric"><div class="m-label">Promedio general</div><div class="big-grade">${globalAvg !== null ? fmt(globalAvg) : '—'}</div><div class="m-sub">${avgs.length ? 'Promedio de materias con datos' : 'Sin calificaciones aún'}</div></div>
       <div class="metric"><div class="m-label">Aprobadas</div><div class="big-grade" style="color:var(--green);">${avgs.length ? passing : '—'}</div><div class="m-sub">de ${mats.length} materias</div></div>
     `;
-    const colors = ['#5d7bff', '#2ecc8a', '#f5a623', '#ff5f72', '#a78bfa', '#34d399'];
+    
+    App.updateDashboardWidget();
+
+    // Las materias ahora usan su propio color en el borde izquierdo
     $('dash-cards').innerHTML = mats.map((m, i) => {
       const avg = Calc.materiaAvg(m);
       const covered = m.rubros.reduce((s, r) => s + (Calc.rubroAvg(r) !== null ? r.porcentaje : 0), 0);
-      const bars = m.rubros.map((r, j) => `<div class="drb" style="flex:${r.porcentaje};background: ${Calc.rubroAvg(r) !== null ? colors[j % colors.length] : 'var(--bg3)'}"></div>`).join('');
+      const bars = m.rubros.map((r, j) => `<div class="drb" style="flex:${r.porcentaje};background: ${Calc.rubroAvg(r) !== null ? (m.color || 'var(--accent)') : 'var(--bg3)'}"></div>`).join('');
       const totalPend = m.rubros.reduce((s, r) => s + (r.pendientes ?? 0), 0);
-      return `<div class="card card-clickable" onclick="App.openMateria(${i})">
+      
+      return `<div class="card card-clickable" style="border-left: 4px solid ${m.color || 'var(--accent)'};" onclick="App.openMateria(${i})">
         <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px">
           <div><div style="font-size:16px;font-weight:500;margin-bottom:3px">${m.nombre || `Materia ${i + 1}`}</div><div style="font-size:12px;color:var(--text3)">${m.rubros.length} rubros · ${covered}% cubierto${totalPend > 0 ? ` · ${totalPend} pendiente${totalPend > 1 ? 's' : ''}` : ''}</div></div>
           <div style="text-align:right"><div class="big-grade ${gradeClass(avg)}" style="font-size:28px">${avg !== null ? fmt(avg) : '—'}</div><div class="badge ${avg !== null && avg >= State.minPass ? 'badge-green' : avg !== null ? 'badge-red' : ''}" style="margin-top:4px;">${badgeForGrade(avg)}</div></div>
         </div>
-        <div style="display:flex;align-items:center;gap:8px"><div class="pbar-wrap"><div class="pbar-fill" style="width:${covered}%;background:var(--accent)"></div></div><span style="font-size:11px;color:var(--text3);font-family:var(--mono)">${covered}%</span></div>
+        <div style="display:flex;align-items:center;gap:8px"><div class="pbar-wrap"><div class="pbar-fill" style="width:${covered}%;background:${m.color || 'var(--accent)'}"></div></div><span style="font-size:11px;color:var(--text3);font-family:var(--mono)">${covered}%</span></div>
         <div class="dash-rubros-bar">${bars}</div>
       </div>`;
     }).join('');
@@ -456,7 +611,7 @@ const App = {
   deleteMateria() {
     const mat = State.materias[State.activeMateria]; const nombre = mat.nombre || `Materia ${State.activeMateria + 1}`;
     if (!confirm(`¿Eliminar "${nombre}"?\nEsta acción no se puede deshacer.`)) return;
-    State.materias.splice(State.activeMateria, 1); DB.save({ materias: State.materias, minPass: State.minPass, historial: State.historial });
+    State.materias.splice(State.activeMateria, 1); DB.save({ materias: State.materias, minPass: State.minPass, historial: State.historial, agenda: State.agenda });
     toast(`"${nombre}" eliminada`); App.buildDashboard(); showScreen('s-dashboard');
   },
   goBack() { App.buildDashboard(); showScreen('s-dashboard'); },
@@ -665,8 +820,18 @@ const App = {
   openAddMateria() {
     App._addModalRubros = [ { nombre: 'Exámenes', porcentaje: 60 }, { nombre: 'Tareas', porcentaje: 20 }, { nombre: 'Proyecto', porcentaje: 20 } ];
     $('add-mat-nombre').value = ''; $('add-mat-err').classList.remove('show');
+    
+    // Configurar color inicial
+    App._activeColor = PALETTE[0];
+    App._renderAddMatColors();
+
     App._renderAddModalRubros(); $('add-materia-modal').classList.remove('hidden');
   },
+  _renderAddMatColors() {
+    const el = $('add-mat-colors');
+    if (el) el.innerHTML = PALETTE.map(c => `<div class="color-dot ${App._activeColor === c ? 'active' : ''}" style="background:${c};" onclick="App.setAddMatColor('${c}')"></div>`).join('');
+  },
+  setAddMatColor(c) { App._activeColor = c; App._renderAddMatColors(); },
   closeAddMateria(e) { if (e && e.target !== $('add-materia-modal')) return; $('add-materia-modal').classList.add('hidden'); },
   _renderAddModalRubros() {
     const rubros = App._addModalRubros;
@@ -696,9 +861,9 @@ const App = {
     if (rubros.some((r) => !r.nombre.trim())) { err.textContent = 'Todos los rubros deben tener nombre.'; err.classList.add('show'); return; }
     if (Math.abs(total - 100) > 0.01) { err.textContent = `La suma es ${total.toFixed(1)}%. Debe ser 100%.`; err.classList.add('show'); return; }
     State.materias.push({
-      nombre, redondeo: false, redondeoUmbral: 0.5, rubros: rubros.map((r) => ({ nombre: r.nombre.trim(), porcentaje: parseFloat(r.porcentaje), calificaciones: [], pendientes: 0 })),
+      nombre, color: App._activeColor, redondeo: false, redondeoUmbral: 0.5, rubros: rubros.map((r) => ({ nombre: r.nombre.trim(), porcentaje: parseFloat(r.porcentaje), calificaciones: [], pendientes: 0 })),
     });
-    await DB.save({ materias: State.materias, minPass: State.minPass, historial: State.historial });
+    await DB.save({ materias: State.materias, minPass: State.minPass, historial: State.historial, agenda: State.agenda });
     $('add-materia-modal').classList.add('hidden'); toast(`"${nombre}" agregada`); App.buildDashboard();
   },
 
