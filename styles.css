@@ -191,7 +191,14 @@ input[type=number] { font-family:var(--mono); }
 @keyframes slideUp    { from{transform:translateY(40px);opacity:0} to{transform:translateY(0);opacity:1} }
 
 /* ── Auth screen (Landing Page Estilo Split) ── */
-#s-auth { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: var(--bg); padding: 40px 20px; }
+#s-auth { 
+  min-height: 100vh; 
+  /* Borramos el display: flex; de aquí para que la clase .screen pueda ocultarlo */
+  align-items: center; 
+  justify-content: center; 
+  background: var(--bg); 
+  padding: 40px 20px; 
+}
 .auth-layout { display: grid; grid-template-columns: 1.1fr 1fr; gap: 60px; max-width: 1000px; width: 100%; align-items: center; }
 
 /* Lado Izquierdo (Hero) */
