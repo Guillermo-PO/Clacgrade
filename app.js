@@ -108,7 +108,7 @@ function scheduleSave() {
 // ── AUTH ────────────────────────────────────────────
 const Auth = {
   currentTab: 'login',
-  _initialized: false, // FIX 2: bandera para evitar afterLogin duplicado
+  _initialized: false, // bandera para evitar afterLogin duplicado
 
   async init() {
     const { data: { session } } = await _supa.auth.getSession();
@@ -123,18 +123,13 @@ const Auth = {
     }
 
     _supa.auth.onAuthStateChange(async (event, session) => {
-      // FIX 2: logs de diagnóstico (comentar en producción)
-      // console.log('[Auth] event:', event, 'session:', session?.user?.id);
-
       if (event === 'SIGNED_IN' && session?.user) {
-        // Si ya está inicializado con el mismo usuario, ignorar
         if (Auth._initialized && State.user && State.user.id === session.user.id) return;
         State.user = session.user;
         Auth._initialized = true;
         await Auth.afterLogin();
       } else if (event === 'TOKEN_REFRESHED') {
         if (session?.user) State.user = session.user;
-        // No llamar afterLogin en refresco de token
       } else if (event === 'SIGNED_OUT') {
         State.user = null;
         Auth._initialized = false;
@@ -202,6 +197,7 @@ const Auth = {
     const pass = $('auth-pass')?.value;
     const err = $('auth-err');
     err.classList.remove('show');
+    
     if (!email || !pass) {
       err.textContent = 'Completa todos los campos.';
       err.classList.add('show');
@@ -213,7 +209,6 @@ const Auth = {
       return;
     }
 
-    // FIX 2: signup no debe disparar afterLogin si hay confirmación de email activa
     if (Auth.currentTab === 'signup') {
       const { data, error } = await _supa.auth.signUp({ email, password: pass });
       if (error) {
@@ -221,32 +216,26 @@ const Auth = {
         err.classList.add('show');
         return;
       }
-      // Si Supabase requiere confirmación, session viene null
       if (!data.session) {
         err.style.color = 'var(--green)';
         err.textContent = '✓ Revisa tu correo para confirmar tu cuenta.';
         err.classList.add('show');
       }
-      // Si no hay confirmación requerida, onAuthStateChange manejará el SIGNED_IN
       return;
     }
 
-    // Login normal
     const { error } = await _supa.auth.signInWithPassword({ email, password: pass });
     if (error) {
       err.textContent = error.message;
       err.classList.add('show');
     }
-    // onAuthStateChange maneja el SIGNED_IN y llama afterLogin
   },
 
   async loginGoogle() {
     const btn = document.querySelector('.btn-google');
     if (btn) { btn.disabled = true; btn.textContent = 'Conectando…'; }
 
-    // FIX 2: resetear bandera para permitir afterLogin al volver del redirect
     Auth._initialized = false;
-
     const redirectTo = window.location.origin + '/';
     const { error } = await _supa.auth.signInWithOAuth({
       provider: 'google',
@@ -293,21 +282,36 @@ const Calc = {
     return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null;
   },
 
+  // Función de utilidad para redondeo personalizado
+  aplicarRedondeo(raw, mat) {
+    // Si no está activo o la calificación es menor al mínimo para aprobar, no se redondea
+    if (!mat.redondeo || raw < State.minPass) return raw;
+    
+    const umbral = mat.redondeoUmbral ?? 0.5;
+    const decimal = parseFloat((raw - Math.floor(raw)).toFixed(4));
+    
+    return decimal >= umbral ? Math.ceil(raw) : Math.floor(raw);
+  },
+
   materiaAvg(mat) {
     let total = 0, covered = 0;
     mat.rubros.forEach((r) => {
       const a = Calc.rubroAvg(r);
       if (a !== null) { total += a * (r.porcentaje / 100); covered += r.porcentaje / 100; }
     });
-    return covered ? total / covered : null;
+    if (!covered) return null;
+    const raw = total / covered;
+    return Calc.aplicarRedondeo(raw, mat);
   },
 
   materiaTotal(mat) {
-    return mat.rubros.reduce((s, r) => s + (Calc.rubroAvg(r) ?? 0) * (r.porcentaje / 100), 0);
+    const raw = mat.rubros.reduce((s, r) => s + (Calc.rubroAvg(r) ?? 0) * (r.porcentaje / 100), 0);
+    return Calc.aplicarRedondeo(raw, mat);
   },
 
   predictPerRubro(mat) {
-    const pass = State.minPass;
+    const realPass = State.minPass;
+    
     return mat.rubros.map((r, ri) => {
       const pend = r.pendientes ?? 0;
       const wi = r.porcentaje / 100;
@@ -324,7 +328,7 @@ const Calc = {
 
       let neededX = null;
       if (pend > 0) {
-        neededX = (((pass - securedOthers) * (existingCount + pend)) / wi - sumExist) / pend;
+        neededX = (((realPass - securedOthers) * (existingCount + pend)) / wi - sumExist) / pend;
       }
 
       return { rubro: r, ri, pend, existingCount, neededX };
@@ -350,32 +354,26 @@ const App = {
     anal.addEventListener('touchend', (e) => { if (e.changedTouches[0].screenX - touchStartX > thresh) showScreen('s-dashboard'); }, { passive: true });
   },
 
-  // ── CSV Export (FIX 3) ──────────────────────────
+  // ── CSV Export ──────────────────────────
   exportCSV() {
     let csv = '';
-
     State.materias.forEach((m, mi) => {
-      // Fila de título de materia
       csv += `"MATERIA: ${m.nombre}"\n`;
 
-      // Construir encabezados y valores en paralelo
       const headers = [];
       const values = [];
 
       m.rubros.forEach((r) => {
-        // Columnas individuales para cada calificación
         r.calificaciones.forEach((g, gi) => {
           headers.push(`"${r.nombre} ${gi + 1}"`);
           values.push(g === '' || g === null || g === undefined ? '' : parseFloat(g).toFixed(2));
         });
 
-        // Columna de promedio del rubro
         const avg = Calc.rubroAvg(r);
         headers.push(`"Promedio ${r.nombre}"`);
         values.push(avg !== null ? avg.toFixed(2) : '');
       });
 
-      // Columna de promedio final de la materia
       const finalAvg = Calc.materiaAvg(m);
       headers.push('"Promedio Final"');
       values.push(finalAvg !== null ? finalAvg.toFixed(2) : '');
@@ -383,7 +381,6 @@ const App = {
       csv += headers.join(',') + '\n';
       csv += values.join(',') + '\n';
 
-      // Fila vacía entre materias (excepto la última)
       if (mi < State.materias.length - 1) csv += '\n';
     });
 
@@ -508,6 +505,8 @@ const App = {
     if (!State.materias[idx]) {
       State.materias[idx] = {
         nombre: '',
+        redondeo: false,
+        redondeoUmbral: 0.5,
         rubros: [
           { nombre: 'Exámenes', porcentaje: 60, calificaciones: [], pendientes: 0 },
           { nombre: 'Tareas', porcentaje: 20, calificaciones: [], pendientes: 0 },
@@ -670,6 +669,21 @@ const App = {
   },
 
   // ── Materia Detail ─────────────────────────────
+  toggleRedondeo(val) {
+    State.materias[State.activeMateria].redondeo = val;
+    scheduleSave();
+    App.buildMateriaDetail();
+  },
+
+  setUmbral(val) {
+    const num = parseFloat(val);
+    if (!isNaN(num) && num >= 0 && num < 1) {
+      State.materias[State.activeMateria].redondeoUmbral = num;
+      scheduleSave();
+      App.buildMateriaDetail();
+    }
+  },
+
   openMateria(i) {
     State.activeMateria = i;
     App.buildMateriaDetail();
@@ -704,7 +718,7 @@ const App = {
       const chipColor = ravg === null ? 'var(--text3)' : ravg >= State.minPass ? 'var(--green)' : 'var(--red)';
       const gradesHtml = r.calificaciones.map((g, gi) => `
         <div class="grade-pill">
-          <input type="number" class="grade-input" min="0" max="10" step="0.1"
+          <input type="text" inputmode="decimal" class="grade-input"
             value="${g}" placeholder="0.0"
             oninput="App.updateGrade(${ri},${gi},this.value)"
             onblur="App.commitGrade(${ri},${gi},this.value,this)">
@@ -738,9 +752,21 @@ const App = {
     }).join('');
 
     $('mat-detail').innerHTML = `
-      <div style="padding:20px 0 16px">
-        <p style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Materia</p>
-        <div style="font-size:22px;font-weight:600">${mat.nombre || `Materia ${State.activeMateria + 1}`}</div>
+      <div style="display:flex; justify-content:space-between; align-items:flex-end; padding:20px 0 16px; flex-wrap:wrap; gap:12px;">
+        <div>
+          <p style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Materia</p>
+          <div style="font-size:22px;font-weight:600">${mat.nombre || `Materia ${State.activeMateria + 1}`}</div>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px; background:var(--bg3); padding:6px 10px; border-radius:var(--r-sm); border:1px solid var(--border);">
+          <label style="display:flex; align-items:center; gap:6px; font-size:12px; font-weight:500; color:var(--text2); cursor:pointer;">
+            <input type="checkbox" ${mat.redondeo ? 'checked' : ''} onchange="App.toggleRedondeo(this.checked)" style="width:14px; height:14px; accent-color:var(--accent); cursor:pointer;">
+            Redondear a partir de .
+          </label>
+          <input type="number" step="0.01" min="0" max="0.99" value="${mat.redondeoUmbral ?? 0.5}" 
+                 onchange="App.setUmbral(this.value)" 
+                 ${!mat.redondeo ? 'disabled' : ''}
+                 style="width:50px; padding:2px 4px; font-size:12px; text-align:center; font-family:var(--mono); border:1px solid var(--border2); border-radius:4px; background:var(--bg2); color:var(--text); outline:none;">
+        </div>
       </div>
       <div class="metrics">
         <div class="metric">
@@ -800,6 +826,14 @@ const App = {
     const mat = State.materias[State.activeMateria];
     let maxPossible = 0, K = 0, sumSw_Cp = 0, sumPw_Cp = 0, hasPend = false;
 
+    let realTarget = target;
+    const umbral = mat.redondeoUmbral ?? 0.5;
+    
+    if (mat.redondeo && target > State.minPass) {
+      realTarget = Math.floor(target) - 1 + umbral;
+      realTarget = Math.max(State.minPass, realTarget); 
+    }
+
     mat.rubros.forEach((r) => {
       const pend = r.pendientes ?? 0;
       const wi = r.porcentaje / 100;
@@ -823,17 +857,17 @@ const App = {
       resEl.innerHTML = `<span class="predict-val info" style="display:inline-block">No tienes ítems pendientes para optimizar.</span>`;
       return;
     }
-    if (target > maxPossible) {
+    if (realTarget > maxPossible) {
       resEl.innerHTML = `<span class="predict-val imp" style="display:inline-block">Meta inalcanzable. El máximo posible es ${fmt(maxPossible)}.</span>`;
       return;
     }
 
-    const neededX = (target - K - sumSw_Cp) / sumPw_Cp;
+    const neededX = (realTarget - K - sumSw_Cp) / sumPw_Cp;
 
     if (neededX <= 0) {
       resEl.innerHTML = `<span style="color:var(--green)">✓ <strong>¡Objetivo superado!</strong> Tu calificación asegurada cubre esta meta.</span>`;
     } else {
-      resEl.innerHTML = `Necesitas un desempeño exacto de <strong style="color:var(--accent2); font-family:var(--mono); font-size:15px; background:rgba(93,123,255,0.15); padding:2px 6px; border-radius:6px;">${fmt(neededX)}</strong> en <strong>todos</strong> tus ítems pendientes para lograr un ${fmt(target)}.`;
+      resEl.innerHTML = `Necesitas un desempeño exacto de <strong style="color:var(--accent2); font-family:var(--mono); font-size:15px; background:rgba(93,123,255,0.15); padding:2px 6px; border-radius:6px;">${fmt(neededX)}</strong> en <strong>todos</strong> tus ítems pendientes para lograr tu objetivo.`;
     }
   },
 
@@ -914,31 +948,26 @@ const App = {
     </div>`;
   },
 
-  // ── Grade inputs (FIX 1) ───────────────────────
+  // ── Grade inputs ───────────────────────
   addGrade(ri) {
     State.materias[State.activeMateria].rubros[ri].calificaciones.push('');
     scheduleSave();
     App.buildMateriaDetail();
-    // FIX 1: enfocar solo el último input sin mover el cursor de otros campos
     setTimeout(() => {
       const ins = document.querySelectorAll('.grade-input');
       if (ins.length) ins[ins.length - 1].focus();
     }, 50);
   },
 
-  // FIX 1: commitGrade ahora recibe el elemento input directamente
-  // y solo actualiza su propio valor, sin iterar ni reconstruir el DOM
   commitGrade(ri, gi, val, inputEl) {
     const p = parseFloat(val);
     const final = isNaN(p) ? '' : Math.max(0, Math.min(10, p));
     State.materias[State.activeMateria].rubros[ri].calificaciones[gi] = final;
 
-    // Actualizar solo el campo que disparó el blur
     if (inputEl) inputEl.value = final === '' ? '' : final;
 
     scheduleSave();
 
-    // Actualizar promedios en el DOM de forma quirúrgica (sin reconstruir)
     const mat = State.materias[State.activeMateria];
     const avg = Calc.materiaAvg(mat);
     const total = Calc.materiaTotal(mat);
@@ -971,7 +1000,6 @@ const App = {
     App.buildMateriaDetail();
   },
 
-  // FIX 1: updateGrade solo actualiza estado y DOM quirúrgico, nunca reconstruye
   updateGrade(ri, gi, val) {
     const raw = val;
     const p = parseFloat(val);
@@ -1068,6 +1096,8 @@ const App = {
 
     State.materias.push({
       nombre,
+      redondeo: false,
+      redondeoUmbral: 0.5,
       rubros: rubros.map((r) => ({
         nombre: r.nombre.trim(),
         porcentaje: parseFloat(r.porcentaje),
