@@ -244,11 +244,15 @@ const App = {
     anal.addEventListener('touchend', (e) => { if (e.changedTouches[0].screenX - touchStartX > thresh) showScreen('s-dashboard'); }, { passive: true });
   },
   
-  exportCSV() {
-    let csv = '';
+exportCSV() {
+    // Agregamos el título maestro para que no se sombreen mal las celdas en Numbers/Excel
+    let csv = '"CALIFICACIONES"\n\n';
+    
     State.materias.forEach((m, mi) => {
-      csv += `"MATERIA: ${m.nombre}"\n`;
-      const headers = []; const values = [];
+      // Iniciamos los encabezados y valores forzando la primera columna a ser la "Materia"
+      const headers = ['"Materia"']; 
+      const values = [`"${m.nombre || `Materia ${mi + 1}`}"`];
+      
       m.rubros.forEach((r) => {
         r.calificaciones.forEach((g, gi) => {
           headers.push(`"${r.nombre} ${gi + 1}"`);
@@ -258,13 +262,17 @@ const App = {
         headers.push(`"Promedio ${r.nombre}"`);
         values.push(avg !== null ? avg.toFixed(2) : '');
       });
+      
       const finalAvg = Calc.materiaAvg(m);
       headers.push('"Promedio Final"');
       values.push(finalAvg !== null ? finalAvg.toFixed(2) : '');
+      
       csv += headers.join(',') + '\n';
       csv += values.join(',') + '\n';
+      
       if (mi < State.materias.length - 1) csv += '\n';
     });
+    
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
