@@ -380,12 +380,13 @@ initSwipes() {
     const threshTouch = 50;
     let touchStartX = 0;
     let isWheeling = false;
+    let wheelAccX = 0; // Acumulador de inercia para trackpads
 
     const setupListeners = (id, onSwipeLeft, onSwipeRight) => {
       const el = document.getElementById(id);
       if (!el) return;
 
-      // 1. Para Celulares y Tablets (Touch)
+      // 1. Celulares y Tablets (Touch)
       el.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].screenX; }, { passive: true });
       el.addEventListener('touchend', e => {
         const diff = touchStartX - e.changedTouches[0].screenX;
@@ -393,24 +394,28 @@ initSwipes() {
         else if (diff < -threshTouch) onSwipeRight();
       }, { passive: true });
 
-      // 2. Para Computadoras (Trackpad con 2 dedos)
+      // 2. Computadoras (Trackpad con 2 dedos)
       el.addEventListener('wheel', e => {
-        if (isWheeling) return; // Evitar disparos múltiples súper rápidos
-        if (Math.abs(e.deltaX) > 30) { 
+        if (isWheeling) return; 
+        
+        wheelAccX += e.deltaX; // Sumamos la fuerza del deslizamiento
+        
+        if (Math.abs(wheelAccX) > 60) { // Umbral perfecto para trackpads
           isWheeling = true;
-          if (e.deltaX > 0) onSwipeLeft(); // Deslizar dos dedos a la izquierda
-          else onSwipeRight(); // Deslizar dos dedos a la derecha
+          if (wheelAccX > 0) onSwipeLeft();
+          else onSwipeRight();
           
-          // Pausa de medio segundo antes de permitir otro cambio de pantalla
-          setTimeout(() => { isWheeling = false; }, 500); 
+          setTimeout(() => { isWheeling = false; wheelAccX = 0; }, 600); 
         }
+        
+        // Si dejas de deslizar, reseteamos la fuerza
+        clearTimeout(el._wheelTimeout);
+        el._wheelTimeout = setTimeout(() => { wheelAccX = 0; }, 150);
+        
       }, { passive: true });
     };
 
-    // Dashboard: Deslizar hacia la izquierda abre la Agenda
     setupListeners('s-dashboard', () => Agenda.openAgenda(), () => {});
-    
-    // Agenda: Deslizar hacia la derecha regresa al Dashboard
     setupListeners('s-agenda', () => {}, () => App.goBack('slide-in-left'));
   },
   
@@ -575,7 +580,18 @@ initSwipes() {
     if (Math.abs(total - 100) > 0.01) { err.textContent = `La suma es ${total.toFixed(1)}%. Debe ser exactamente 100%.`; err.classList.add('show'); return false; }
     err.classList.remove('show'); return true;
   },
-  cfgNext() { if (!App.cfgValidate()) return; State.configIdx++; App.buildConfigForm(); },
+  cfgNext() { 
+    if (!App.cfgValidate()) return; 
+    
+    // Si aún no llegamos al total de materias, pasamos a la siguiente
+    if (State.configIdx < State.totalMaterias - 1) {
+      State.configIdx++; 
+      App.buildConfigForm(); 
+    } else {
+      // Si ya llenamos la última, terminamos y vamos al Dashboard
+      App.cfgFinish();
+    }
+  },
   cfgPrev() { State.configIdx--; App.buildConfigForm(); },
   async cfgFinish() {
     if (!App.cfgValidate()) return;
