@@ -47,6 +47,13 @@ function showScreen(id, animClass = null) {
     target.classList.add('active');
     if (animClass) target.classList.add(animClass);
   }
+  
+  // Control automático de las bolitas
+  if (window.App && App.updateDots) {
+     if (id === 's-dashboard') App.updateDots('dashboard');
+     else if (id === 's-agenda') App.updateDots('agenda');
+     else App.updateDots('none');
+  }
 }
 
 function toast(msg, dur = 2400) {
@@ -365,34 +372,23 @@ const App = {
   _activeMatColor: PALETTE[0],
 
   initSwipes() {
-    let touchStartX = 0; const thresh = 80;
+    let touchStartX = 0; const thresh = 50; // Más sensible para mayor fluidez
     
-    // Dashboard Swipe
-    const dash = document.getElementById('s-dashboard');
+    // Dashboard -> Deslizar hacia la izquierda (dedo a la izquierda) -> Abre Agenda
+    const dash = $('s-dashboard');
     if(dash) {
       dash.addEventListener('touchstart', (e) => { touchStartX = e.changedTouches[0].screenX; }, { passive: true });
       dash.addEventListener('touchend', (e) => { 
-        const diff = touchStartX - e.changedTouches[0].screenX;
-        if (diff > thresh) App.openAnalytics(); // Izquierda -> Analíticas
-        else if (diff < -thresh) Agenda.openAgenda(); // Derecha -> Agenda
+        if (touchStartX - e.changedTouches[0].screenX > thresh) Agenda.openAgenda(); 
       }, { passive: true });
     }
     
-    // Analíticas Swipe
-    const anal = document.getElementById('s-analytics');
-    if(anal) {
-      anal.addEventListener('touchstart', (e) => { touchStartX = e.changedTouches[0].screenX; }, { passive: true });
-      anal.addEventListener('touchend', (e) => { 
-        if (e.changedTouches[0].screenX - touchStartX > thresh) showScreen('s-dashboard', 'slide-in-left'); 
-      }, { passive: true });
-    }
-
-    // Agenda Swipe
-    const agenda = document.getElementById('s-agenda');
+    // Agenda -> Deslizar hacia la derecha (dedo a la derecha) -> Regresa al Dashboard
+    const agenda = $('s-agenda');
     if (agenda) {
       agenda.addEventListener('touchstart', (e) => { touchStartX = e.changedTouches[0].screenX; }, { passive: true });
       agenda.addEventListener('touchend', (e) => { 
-        if (touchStartX - e.changedTouches[0].screenX > thresh) showScreen('s-dashboard', 'slide-in-left'); 
+        if (e.changedTouches[0].screenX - touchStartX > thresh) App.goBack('slide-in-left'); 
       }, { passive: true });
     }
   },
@@ -619,7 +615,21 @@ const App = {
     State.materias.splice(State.activeMateria, 1); DB.save({ materias: State.materias, minPass: State.minPass, historial: State.historial, agenda: State.agenda });
     toast(`"${nombre}" eliminada`); App.buildDashboard(); showScreen('s-dashboard');
   },
-  goBack() { App.buildDashboard(); showScreen('s-dashboard'); },
+  goBack(animClass = null) { 
+    App.buildDashboard(); 
+    showScreen('s-dashboard', typeof animClass === 'string' ? animClass : null); 
+  },
+  
+  updateDots(panel) {
+    const dots = $('swipe-dots'); if (!dots) return;
+    if (panel === 'dashboard' || panel === 'agenda') {
+      dots.style.display = 'flex';
+      $('dot-dash').classList.toggle('active', panel === 'dashboard');
+      $('dot-agenda').classList.toggle('active', panel === 'agenda');
+    } else {
+      dots.style.display = 'none';
+    }
+  },
 
   toggleRedondeo(val) {
     State.materias[State.activeMateria].redondeo = val;
