@@ -356,24 +356,29 @@ const App = {
 
   // ── CSV Export ──────────────────────────
   exportCSV() {
-    let csv = '';
-    State.materias.forEach((m, mi) => {
-      csv += `"MATERIA: ${m.nombre}"\n`;
+    // 1. Título principal en la primera fila (quedará sombreado arriba)
+    let csv = '"CALIFICACIONES"\n\n';
 
-      const headers = [];
-      const values = [];
+    State.materias.forEach((m, mi) => {
+      // 2. La primera columna siempre será "Materia"
+      const headers = ['"Materia"'];
+      // 3. Debajo de "Materia", el nombre de la materia (quedarán en la columna sombreada)
+      const values = [`"${m.nombre}"`];
 
       m.rubros.forEach((r) => {
+        // Columnas individuales para cada calificación desplazadas a la derecha
         r.calificaciones.forEach((g, gi) => {
           headers.push(`"${r.nombre} ${gi + 1}"`);
           values.push(g === '' || g === null || g === undefined ? '' : parseFloat(g).toFixed(2));
         });
 
+        // Columna de promedio del rubro
         const avg = Calc.rubroAvg(r);
         headers.push(`"Promedio ${r.nombre}"`);
         values.push(avg !== null ? avg.toFixed(2) : '');
       });
 
+      // Columna de promedio final de la materia al extremo derecho
       const finalAvg = Calc.materiaAvg(m);
       headers.push('"Promedio Final"');
       values.push(finalAvg !== null ? finalAvg.toFixed(2) : '');
@@ -381,6 +386,7 @@ const App = {
       csv += headers.join(',') + '\n';
       csv += values.join(',') + '\n';
 
+      // Fila vacía entre materias para que respiren visualmente
       if (mi < State.materias.length - 1) csv += '\n';
     });
 
@@ -388,14 +394,14 @@ const App = {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', 'calcgrade_datos.csv');
+    // 4. Cambiamos el nombre del archivo al descargar
+    link.setAttribute('download', 'Calificaciones.csv');
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    toast('Archivo descargado');
+    toast('Archivo de calificaciones descargado');
   },
-
   // ── Analytics ──────────────────────────────────
   openAnalytics() {
     showScreen('s-analytics');
