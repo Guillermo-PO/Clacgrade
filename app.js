@@ -48,11 +48,16 @@ function showScreen(id, animClass = null) {
     if (animClass) target.classList.add(animClass);
   }
   
-  // Control automático de las bolitas
-  if (window.App && App.updateDots) {
-     if (id === 's-dashboard') App.updateDots('dashboard');
-     else if (id === 's-agenda') App.updateDots('agenda');
-     else App.updateDots('none');
+  // Encender bolitas solo en Dashboard y Agenda
+  const dots = $('swipe-dots');
+  if (dots) {
+    if (id === 's-dashboard' || id === 's-agenda') {
+      dots.style.display = 'flex';
+      $('dot-dash').classList.toggle('active', id === 's-dashboard');
+      $('dot-agenda').classList.toggle('active', id === 's-agenda');
+    } else {
+      dots.style.display = 'none';
+    }
   }
 }
 
@@ -372,28 +377,41 @@ const App = {
   _activeMatColor: PALETTE[0],
 
 initSwipes() {
-    let startX = 0; let isDown = false; const thresh = 80;
-    
-    const setupListeners = (el, onLeft, onRight) => {
-      if(!el) return;
-      el.addEventListener('mousedown', e => { isDown = true; startX = e.pageX; });
-      el.addEventListener('touchstart', e => { isDown = true; startX = e.changedTouches[0].screenX; }, { passive: true });
-      
-      const handleEnd = (e) => {
-        if (!isDown) return;
-        const endX = e.type === 'mouseup' ? e.pageX : e.changedTouches[0].screenX;
-        const diff = startX - endX;
-        if (diff > thresh) onLeft(); // Arrastre a la izquierda
-        else if (diff < -thresh) onRight(); // Arrastre a la derecha
-        isDown = false;
-      };
-      el.addEventListener('mouseup', handleEnd);
-      el.addEventListener('touchend', handleEnd, { passive: true });
+    const threshTouch = 50;
+    let touchStartX = 0;
+    let isWheeling = false;
+
+    const setupListeners = (id, onSwipeLeft, onSwipeRight) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+
+      // 1. Para Celulares y Tablets (Touch)
+      el.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].screenX; }, { passive: true });
+      el.addEventListener('touchend', e => {
+        const diff = touchStartX - e.changedTouches[0].screenX;
+        if (diff > threshTouch) onSwipeLeft();
+        else if (diff < -threshTouch) onSwipeRight();
+      }, { passive: true });
+
+      // 2. Para Computadoras (Trackpad con 2 dedos)
+      el.addEventListener('wheel', e => {
+        if (isWheeling) return; // Evitar disparos múltiples súper rápidos
+        if (Math.abs(e.deltaX) > 30) { 
+          isWheeling = true;
+          if (e.deltaX > 0) onSwipeLeft(); // Deslizar dos dedos a la izquierda
+          else onSwipeRight(); // Deslizar dos dedos a la derecha
+          
+          // Pausa de medio segundo antes de permitir otro cambio de pantalla
+          setTimeout(() => { isWheeling = false; }, 500); 
+        }
+      }, { passive: true });
     };
 
-    setupListeners($('s-dashboard'), App.openAnalytics, Agenda.openAgenda);
-    setupListeners($('s-agenda'), () => showScreen('s-dashboard', 'slide-in-left'), () => {});
-    setupListeners($('s-analytics'), () => {}, () => showScreen('s-dashboard', 'slide-in-left'));
+    // Dashboard: Deslizar hacia la izquierda abre la Agenda
+    setupListeners('s-dashboard', () => Agenda.openAgenda(), () => {});
+    
+    // Agenda: Deslizar hacia la derecha regresa al Dashboard
+    setupListeners('s-agenda', () => {}, () => App.goBack('slide-in-left'));
   },
   
   exportCSV() {
