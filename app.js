@@ -188,7 +188,17 @@ const Auth = {
     
     showScreen('s-auth'); Auth.renderForm(); toast('Sesión cerrada');
   },
-  closeUserMenu() { $('user-menu').style.display = 'none'; },
+ showUserMenu() {
+    const emailEl = $('menu-email');
+    const menuEl = $('user-menu');
+    if (emailEl) emailEl.textContent = State.user?.email ?? '';
+    if (menuEl) menuEl.style.display = 'block';
+  },
+  
+  closeUserMenu() {
+    const menuEl = $('user-menu');
+    if (menuEl) menuEl.style.display = 'none';
+  },
 };
 
 // ── CALC ENGINE ─────────────────────────────────────
