@@ -26,12 +26,13 @@ function getRandomQuote() { return QUOTES[Math.floor(Math.random() * QUOTES.leng
 
 // ── STATE ───────────────────────────────────────────
 const State = {
-  user: null, materias: [], historial: [], agenda: [], configIdx: 0, // <-- agenda añadida
+  user: null, materias: [], historial: [], agenda: [], configIdx: 0,
   totalMaterias: 0, minPass: 6.0, activeMateria: 0, syncTimer: null,
 };
 
 // Paleta de colores para las materias
 const PALETTE = ['#5d7bff', '#2ecc8a', '#f5a623', '#ff5f72', '#a78bfa', '#34d399', '#f472b6', '#fbbf24'];
+
 
 // ── UTILS ───────────────────────────────────────────
 const $ = (id) => document.getElementById(id);
@@ -262,7 +263,7 @@ const Calc = {
   },
 };
 
-// ── AGENDA MODULE (NUEVO) ───────────────────────────
+// ── AGENDA MODULE ───────────────────────────
 const Agenda = {
   view: 'list', currentDate: new Date(), selectedDate: new Date(),
   openAgenda() { showScreen('s-agenda', 'slide-in-right'); this.render(); },
@@ -292,7 +293,9 @@ const Agenda = {
   },
   buildEventCard(e) {
     const mat = State.materias[e.materiaIdx]; const color = mat?.color || 'var(--border)';
-    const dateStr = new Date(e.fecha + 'T12:00:00').toLocaleDateString('es-ES', { month: 'short', day: 'numeric' });
+    const dateParts = e.fecha.split('-');
+    const dateObj = new Date(dateParts[0], dateParts[1] - 1, dateParts[2]);
+    const dateStr = dateObj.toLocaleDateString('es-ES', { month: 'short', day: 'numeric' });
     return `
       <div class="ev-card ${e.completado ? 'done' : ''}" style="border-left-color:${color};">
         <div class="ev-info">
@@ -348,10 +351,12 @@ const Agenda = {
   saveEvent() {
     const title = $('ev-title').value.trim(); if (!title) { toast('Agrega un título'); return; }
     State.agenda.push({ id: Date.now().toString(), titulo: title, materiaIdx: parseInt($('ev-materia').value), tipo: $('ev-type').value, fecha: $('ev-date').value, completado: false });
-    scheduleSave(); this.closeAddEvent(); this.render(); App.updateDashboardWidget(); toast('Guardado en Agenda');
+    scheduleSave(); this.closeAddEvent(); this.render();
+    const widget = $('dash-agenda-widget'); if(widget) widget.style.display = 'block'; 
+    toast('Guardado en Agenda');
   },
-  toggleDone(id) { const ev = State.agenda.find(e => e.id === id); if (ev) ev.completado = !ev.completado; scheduleSave(); this.render(); App.updateDashboardWidget(); },
-  deleteEvent(id) { State.agenda = State.agenda.filter(e => e.id !== id); scheduleSave(); this.render(); App.updateDashboardWidget(); }
+  toggleDone(id) { const ev = State.agenda.find(e => e.id === id); if (ev) ev.completado = !ev.completado; scheduleSave(); this.render(); },
+  deleteEvent(id) { State.agenda = State.agenda.filter(e => e.id !== id); scheduleSave(); this.render(); }
 };
 
 // ── APP ─────────────────────────────────────────────
@@ -361,6 +366,36 @@ const App = {
 
   initSwipes() {
     let touchStartX = 0; const thresh = 80;
+    
+    // Dashboard Swipe
+    const dash = document.getElementById('s-dashboard');
+    if(dash) {
+      dash.addEventListener('touchstart', (e) => { touchStartX = e.changedTouches[0].screenX; }, { passive: true });
+      dash.addEventListener('touchend', (e) => { 
+        const diff = touchStartX - e.changedTouches[0].screenX;
+        if (diff > thresh) App.openAnalytics(); // Izquierda -> Analíticas
+        else if (diff < -thresh) Agenda.openAgenda(); // Derecha -> Agenda
+      }, { passive: true });
+    }
+    
+    // Analíticas Swipe
+    const anal = document.getElementById('s-analytics');
+    if(anal) {
+      anal.addEventListener('touchstart', (e) => { touchStartX = e.changedTouches[0].screenX; }, { passive: true });
+      anal.addEventListener('touchend', (e) => { 
+        if (e.changedTouches[0].screenX - touchStartX > thresh) showScreen('s-dashboard', 'slide-in-left'); 
+      }, { passive: true });
+    }
+
+    // Agenda Swipe (NUEVO)
+    const agenda = document.getElementById('s-agenda');
+    if (agenda) {
+      agenda.addEventListener('touchstart', (e) => { touchStartX = e.changedTouches[0].screenX; }, { passive: true });
+      agenda.addEventListener('touchend', (e) => { 
+        if (touchStartX - e.changedTouches[0].screenX > thresh) showScreen('s-dashboard', 'slide-in-left'); 
+      }, { passive: true });
+    }
+  },
     
     // Dashboard Swipe
     const dash = document.getElementById('s-dashboard');
