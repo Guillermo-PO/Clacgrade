@@ -312,3 +312,11 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
 .cal-day.selected { border-color:var(--accent); background:var(--surface); }
 .cal-dots { display:flex; gap:2px; margin-top:2px; }
 .cal-dot { width:4px; height:4px; border-radius:50%; }
+/* ── Paginación (Bolitas) ── */
+.swipe-dots { position: fixed; bottom: calc(20px + var(--safe-bot)); left: 0; width: 100%; display: flex; justify-content: center; gap: 8px; z-index: 50; pointer-events: none; }
+.s-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border2); transition: background 0.3s, transform 0.3s; }
+.s-dot.active { background: var(--accent); transform: scale(1.2); }
+
+/* ── Transiciones Más Fluidas ── */
+.slide-in-right { animation: slideInRight 0.25s cubic-bezier(0.25, 0.8, 0.25, 1) forwards; }
+.slide-in-left  { animation: slideInLeft 0.25s cubic-bezier(0.25, 0.8, 0.25, 1) forwards; }
