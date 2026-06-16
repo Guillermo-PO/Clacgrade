@@ -190,7 +190,7 @@
    .predict-val.ok   { background:var(--green-bg); color:var(--green); }
    .predict-val.warn { background:var(--amber-bg); color:var(--amber); }
    .predict-val.imp  { background:var(--red-bg);   color:var(--red); }
-   .predict-val.done { background:var(--bg2);       color:var(--text3); }
+   .predict-val.done { background:var(--bg2);      color:var(--text3); }
    .predict-val.info { background:rgba(93,123,255,.12); color:var(--accent2); font-size:11px; }
    
    /* ── History Items ── */
