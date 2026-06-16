@@ -68,6 +68,16 @@ input[type=text], input[type=number], input[type=email], input[type=password] { 
 input:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px rgba(93,123,255,.15); }
 input::placeholder { color:var(--text3); }
 input[type=number] { font-family:var(--mono); }
+/* Quitar las flechas de los inputs numéricos */
+input[type=number]::-webkit-inner-spin-button, 
+input[type=number]::-webkit-outer-spin-button { 
+  -webkit-appearance: none; 
+  margin: 0; 
+}
+input[type=number] { 
+  -moz-appearance: textfield; 
+  appearance: textfield;
+}
 
 /* ── Cards ── */
 .card { background:var(--bg2); border:1px solid var(--border); border-radius:var(--r-xl); padding:22px 24px; margin-bottom:14px; box-shadow:0 4px 24px rgba(0,0,0,0.2); }
