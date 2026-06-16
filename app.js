@@ -377,46 +377,44 @@ const App = {
   _activeMatColor: PALETTE[0],
 
 initSwipes() {
-    const thresh = 40; // Umbral óptimo de sensibilidad
+    const thresh = 40; 
     let touchStartX = 0;
     let isTransitioning = false;
 
-    const dash = $('s-dashboard');
-    const agenda = $('s-agenda');
+    // Escuchamos en todo el documento (0 puntos muertos)
+    document.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].screenX; }, { passive: true });
+    
+    document.addEventListener('touchend', e => {
+      const diff = touchStartX - e.changedTouches[0].screenX;
+      
+      // Si estamos en el Dashboard y deslizamos a la izquierda
+      if ($('s-dashboard') && $('s-dashboard').classList.contains('active')) {
+        if (diff > thresh) Agenda.openAgenda();
+      } 
+      // Si estamos en la Agenda y deslizamos a la derecha
+      else if ($('s-agenda') && $('s-agenda').classList.contains('active')) {
+        if (diff < -thresh) App.goBack('slide-in-left');
+      }
+    }, { passive: true });
 
-    // ── GESTOS EN EL DASHBOARD (Ir a la Agenda) ──
-    if (dash) {
-      dash.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].screenX; }, { passive: true });
-      dash.addEventListener('touchend', e => {
-        if (touchStartX - e.changedTouches[0].screenX > thresh) Agenda.openAgenda();
-      }, { passive: true });
-
-      dash.addEventListener('wheel', e => {
-        if (isTransitioning) return;
-        if (e.deltaX > 25) { // Deslizamiento hacia la izquierda
+    document.addEventListener('wheel', e => {
+      if (isTransitioning) return;
+      
+      if ($('s-dashboard') && $('s-dashboard').classList.contains('active')) {
+        if (e.deltaX > 25) { 
           isTransitioning = true;
           Agenda.openAgenda();
           setTimeout(() => isTransitioning = false, 500);
         }
-      }, { passive: true });
-    }
-
-    // ── GESTOS EN LA AGENDA (Regresar al Dashboard) ──
-    if (agenda) {
-      agenda.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].screenX; }, { passive: true });
-      agenda.addEventListener('touchend', e => {
-        if (e.changedTouches[0].screenX - touchStartX > thresh) App.goBack('slide-in-left');
-      }, { passive: true });
-
-      agenda.addEventListener('wheel', e => {
-        if (isTransitioning) return;
-        if (e.deltaX < -25) { // Deslizamiento hacia la derecha
+      } 
+      else if ($('s-agenda') && $('s-agenda').classList.contains('active')) {
+        if (e.deltaX < -25) { 
           isTransitioning = true;
           App.goBack('slide-in-left');
           setTimeout(() => isTransitioning = false, 500);
         }
-      }, { passive: true });
-    }
+      }
+    }, { passive: true });
   },
   
   exportCSV() {
@@ -644,7 +642,7 @@ initSwipes() {
           <div><div style="font-size:16px;font-weight:500;margin-bottom:3px">${m.nombre || `Materia ${i + 1}`}</div><div style="font-size:12px;color:var(--text3)">${m.rubros.length} rubros · ${covered}% cubierto${totalPend > 0 ? ` · ${totalPend} pendiente${totalPend > 1 ? 's' : ''}` : ''}</div></div>
           <div style="text-align:right"><div class="big-grade ${gradeClass(avg)}" style="font-size:28px">${avg !== null ? fmt(avg) : '—'}</div><div class="badge ${avg !== null && avg >= State.minPass ? 'badge-green' : avg !== null ? 'badge-red' : ''}" style="margin-top:4px;">${badgeForGrade(avg)}</div></div>
         </div>
-        <div style="display:flex;align-items:center;gap:8px"><div class="pbar-wrap"><div class="pbar-fill" style="width:${covered}%;background:${m.color || 'var(--accent)'}"></div></div><span style="font-size:11px;color:var(--accent);font-family:var(--mono);font-weight:500;">${covered}%</span></div>
+        <div style="display:flex;align-items:center;gap:8px"><div class="pbar-wrap"><div class="pbar-fill" style="width:${covered}%;background:var(--accent)"></div></div><span style="font-size:11px;color:var(--accent);font-family:var(--mono);font-weight:500;">${covered}%</span></div>
         <div class="dash-rubros-bar">${bars}</div>
       </div>`;
     }).join('');
