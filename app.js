@@ -119,7 +119,6 @@ const Auth = {
       State.materias = saved.materias || []; State.historial = saved.historial || []; State.minPass = saved.minPass ?? 6.0;
     }
     
-    // Hacemos visible el botón de Perfil en el header
     const btn = $('btn-user-menu');
     if (btn) {
       btn.textContent = State.user.email?.split('@')[0] ?? 'Perfil';
@@ -132,7 +131,6 @@ const Auth = {
       showScreen('s-setup');
     }
   },
-  
   switchTab(tab) {
     Auth.currentTab = tab;
     $('tab-login').classList.toggle('active', tab === 'login');
@@ -179,22 +177,20 @@ const Auth = {
       if (errEl) { errEl.textContent = 'Error Google: ' + error.message; errEl.classList.add('show'); }
     }
   },
- async logout() {
+  async logout() {
     Auth.closeUserMenu(); await _supa.auth.signOut(); State.materias = []; Auth._initialized = false;
     
-    // Ocultamos el botón del header al salir
     const btn = $('btn-user-menu'); 
     if (btn) btn.style.display = 'none'; 
     
     showScreen('s-auth'); Auth.renderForm(); toast('Sesión cerrada');
   },
- showUserMenu() {
+  showUserMenu() {
     const emailEl = $('menu-email');
     const menuEl = $('user-menu');
     if (emailEl) emailEl.textContent = State.user?.email ?? '';
     if (menuEl) menuEl.style.display = 'block';
   },
-  
   closeUserMenu() {
     const menuEl = $('user-menu');
     if (menuEl) menuEl.style.display = 'none';
@@ -203,6 +199,16 @@ const Auth = {
 
 // ── CALC ENGINE ─────────────────────────────────────
 const Calc = {
+  _round(val, mat) {
+    if (val === null) return null;
+    if (!mat.redondeo || val < State.minPass) return val;
+    
+    const intPart = Math.floor(val);
+    const decPart = val - intPart;
+    const umbral = parseFloat(mat.redondeoUmbral) || 0.5;
+    
+    return decPart >= umbral ? intPart + 1 : intPart;
+  },
   rubroAvg(r) {
     const v = r.calificaciones.map((x) => parseFloat(x)).filter((x) => !isNaN(x));
     return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null;
@@ -213,10 +219,12 @@ const Calc = {
       const a = Calc.rubroAvg(r);
       if (a !== null) { total += a * (r.porcentaje / 100); covered += r.porcentaje / 100; }
     });
-    return covered ? total / covered : null;
+    const rawAvg = covered ? total / covered : null;
+    return Calc._round(rawAvg, mat);
   },
   materiaTotal(mat) {
-    return mat.rubros.reduce((s, r) => s + (Calc.rubroAvg(r) ?? 0) * (r.porcentaje / 100), 0);
+    const rawTotal = mat.rubros.reduce((s, r) => s + (Calc.rubroAvg(r) ?? 0) * (r.porcentaje / 100), 0);
+    return Calc._round(rawTotal, mat);
   },
   predictPerRubro(mat) {
     const pass = State.minPass;
@@ -254,12 +262,10 @@ const App = {
     anal.addEventListener('touchend', (e) => { if (e.changedTouches[0].screenX - touchStartX > thresh) showScreen('s-dashboard'); }, { passive: true });
   },
   
-exportCSV() {
-    // Agregamos el título maestro para que no se sombreen mal las celdas en Numbers/Excel
+  exportCSV() {
     let csv = '"CALIFICACIONES"\n\n';
     
     State.materias.forEach((m, mi) => {
-      // Iniciamos los encabezados y valores forzando la primera columna a ser la "Materia"
       const headers = ['"Materia"']; 
       const values = [`"${m.nombre || `Materia ${mi + 1}`}"`];
       
@@ -352,7 +358,7 @@ exportCSV() {
     const idx = State.configIdx; const total = State.totalMaterias;
     if (!State.materias[idx]) {
       State.materias[idx] = {
-        nombre: '', rubros: [
+        nombre: '', redondeo: false, redondeoUmbral: 0.5, rubros: [
           { nombre: 'Exámenes', porcentaje: 60, calificaciones: [], pendientes: 0 },
           { nombre: 'Tareas', porcentaje: 20, calificaciones: [], pendientes: 0 },
           { nombre: 'Proyecto', porcentaje: 20, calificaciones: [], pendientes: 0 },
@@ -455,6 +461,17 @@ exportCSV() {
   },
   goBack() { App.buildDashboard(); showScreen('s-dashboard'); },
 
+  toggleRedondeo(val) {
+    State.materias[State.activeMateria].redondeo = val;
+    scheduleSave(); App.buildMateriaDetail();
+  },
+  updateUmbral(val) {
+    let u = parseFloat(val);
+    if (isNaN(u) || u < 0.1 || u > 0.9) u = 0.5;
+    State.materias[State.activeMateria].redondeoUmbral = u;
+    scheduleSave(); App.buildMateriaDetail();
+  },
+
   buildMateriaDetail() {
     const mat = State.materias[State.activeMateria]; const avg = Calc.materiaAvg(mat); const total = Calc.materiaTotal(mat);
     $('mat-header-badge').innerHTML = `<span class="badge ${avg !== null && avg >= State.minPass ? 'badge-green' : avg !== null ? 'badge-red' : ''}">${badgeForGrade(avg)}</span>`;
@@ -485,7 +502,20 @@ exportCSV() {
     }).join('');
     $('mat-detail').innerHTML = `
       <div class="card">
-        <h2 style="font-size:22px;margin-bottom:16px;display:flex;align-items:center;gap:10px;">${mat.nombre || `Materia ${State.activeMateria + 1}`}</h2>
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px;">
+          <h2 style="font-size:22px; margin:0;">${mat.nombre || `Materia ${State.activeMateria + 1}`}</h2>
+          
+          <div style="background:var(--bg3); padding:8px 12px; border-radius:var(--r-md); border:1px solid var(--border); display:flex; flex-direction:column; gap:6px; align-items:flex-end;">
+            <label style="display:flex; align-items:center; gap:8px; font-size:12px; cursor:pointer; color:var(--text2);">
+              <input type="checkbox" ${mat.redondeo ? 'checked' : ''} onchange="App.toggleRedondeo(this.checked)" style="width:14px; height:14px; accent-color:var(--accent);">
+              Redondeo
+            </label>
+            <div style="display:${mat.redondeo ? 'flex' : 'none'}; align-items:center; gap:6px; font-size:11px; color:var(--text3);">
+              Umbral: <input type="number" step="0.1" min="0.1" max="0.9" value="${mat.redondeoUmbral || 0.5}" onchange="App.updateUmbral(this.value)" style="width:46px; padding:2px 4px; font-size:11px; text-align:center; background:var(--bg2); border:1px solid var(--border); color:var(--text); border-radius:4px;">
+            </div>
+          </div>
+        </div>
+        
         <div class="metrics">
           <div class="metric"><div class="m-label">Promedio actual</div><div id="live-avg" class="big-grade ${gradeClass(avg)}">${avg !== null ? fmt(avg) : '—'}</div><div class="m-sub">Solo rubros con datos</div></div>
           <div class="metric"><div class="m-label">Calificación total</div><div id="live-total" class="big-grade ${gradeClass(total)}">${fmt(total)}</div><div class="m-sub">Ponderado 100%</div></div>
@@ -509,9 +539,20 @@ exportCSV() {
   setPendientes(ri, val) { State.materias[State.activeMateria].rubros[ri].pendientes = Math.max(0, val); scheduleSave(); App.buildMateriaDetail(); },
 
   calcTargetGrade(val) {
-    const target = parseFloat(val); const resEl = $('target-result');
+    let target = parseFloat(val); const resEl = $('target-result');
     if (isNaN(target) || target < 0 || target > 10) { resEl.innerHTML = 'Ingresa una calificación objetivo válida (entre 0 y 10).'; return; }
-    const mat = State.materias[State.activeMateria]; let maxPossible = 0, K = 0, sumSw_Cp = 0, sumPw_Cp = 0, hasPend = false;
+    
+    const mat = State.materias[State.activeMateria]; 
+    
+    if (mat.redondeo && target > State.minPass) {
+      const intTarget = Math.floor(target);
+      const umbral = parseFloat(mat.redondeoUmbral) || 0.5;
+      if (target === intTarget) {
+         target = (intTarget - 1) + umbral;
+      }
+    }
+
+    let maxPossible = 0, K = 0, sumSw_Cp = 0, sumPw_Cp = 0, hasPend = false;
     mat.rubros.forEach((r) => {
       const pend = r.pendientes ?? 0; const wi = r.porcentaje / 100;
       const grades = r.calificaciones.map((x) => parseFloat(x)).filter((x) => !isNaN(x));
@@ -522,11 +563,13 @@ exportCSV() {
         hasPend = true; sumSw_Cp += (sSum * wi) / (cCount + pend); sumPw_Cp += (pend * wi) / (cCount + pend); maxPossible += ((sSum + pend * 10) / (cCount + pend)) * wi;
       }
     });
+    
     if (!hasPend) { resEl.innerHTML = 'No tienes ítems pendientes para optimizar.'; return; }
     if (target > maxPossible) { resEl.innerHTML = `Meta inalcanzable. El máximo posible es ${fmt(maxPossible)}.`; return; }
     const neededX = (target - K - sumSw_Cp) / sumPw_Cp;
+    
     if (neededX <= 0) { resEl.innerHTML = '✓ ¡Objetivo superado! Tu calificación asegurada cubre esta meta.'; } 
-    else { resEl.innerHTML = `Necesitas un desempeño exacto de <strong>${fmt(neededX)}</strong> en todos tus ítems pendientes para lograr un ${fmt(target)}.`; }
+    else { resEl.innerHTML = `Necesitas un desempeño exacto de <strong>${fmt(neededX)}</strong> en todos tus ítems pendientes para lograr tu objetivo.`; }
   },
 
   _buildPredictHtml(mat) {
@@ -653,7 +696,7 @@ exportCSV() {
     if (rubros.some((r) => !r.nombre.trim())) { err.textContent = 'Todos los rubros deben tener nombre.'; err.classList.add('show'); return; }
     if (Math.abs(total - 100) > 0.01) { err.textContent = `La suma es ${total.toFixed(1)}%. Debe ser 100%.`; err.classList.add('show'); return; }
     State.materias.push({
-      nombre, rubros: rubros.map((r) => ({ nombre: r.nombre.trim(), porcentaje: parseFloat(r.porcentaje), calificaciones: [], pendientes: 0 })),
+      nombre, redondeo: false, redondeoUmbral: 0.5, rubros: rubros.map((r) => ({ nombre: r.nombre.trim(), porcentaje: parseFloat(r.porcentaje), calificaciones: [], pendientes: 0 })),
     });
     await DB.save({ materias: State.materias, minPass: State.minPass, historial: State.historial });
     $('add-materia-modal').classList.add('hidden'); toast(`"${nombre}" agregada`); App.buildDashboard();
