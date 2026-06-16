@@ -195,7 +195,16 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
 #s-setup.active { display:flex; }
 .setup-box     { width:100%; max-width:340px; background:var(--bg2); border:1px solid var(--border); border-radius:var(--r-xl); padding:28px 24px; }
 
-.modal-overlay        { position:fixed; inset:0; z-index:600; background:rgba(0,0,0,.65); display:flex; align-items:flex-end; justify-content:center; }
+.modal-overlay { 
+  position: fixed; 
+  inset: 0; 
+  z-index: 2000; /* Prioridad máxima: por encima de todo */
+  background: rgba(0,0,0,.75); 
+  display: flex; 
+  align-items: flex-end; 
+  justify-content: center; 
+  backdrop-filter: blur(4px); /* Añadimos un poco de desenfoque al fondo */
+}
 .modal-overlay.hidden { display:none; }
 .modal-sheet          { background:var(--bg2); border:1px solid var(--border2); border-radius:var(--r-xl) var(--r-xl) 0 0; padding:24px 20px 32px; width:100%; max-width:480px; max-height:90vh; overflow-y:auto; animation:slideUp .25s ease; }
 .modal-handle         { width:36px; height:4px; background:var(--border2); border-radius:2px; margin:0 auto 20px; }
@@ -319,13 +328,13 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
   bottom: 0; 
   left: 0; 
   width: 100%; 
-  padding: 16px 0 calc(16px + var(--safe-bot)); 
-  background: var(--bg); /* Fondo sólido del color de tu tema */
-  border-top: 1px solid var(--border); /* Línea sutil divisoria */
+  padding: 12px 0 calc(12px + var(--safe-bot)); 
+  background: var(--bg); 
+  border-top: 1px solid var(--border); 
   display: flex; 
   justify-content: center; 
   gap: 8px; 
-  z-index: 999; 
+  z-index: 100; /* Prioridad baja para no tapar modales */
   pointer-events: none; 
 }
 .s-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border2); transition: background 0.3s, transform 0.3s; }
