@@ -38,7 +38,7 @@ const PALETTE = ['#5d7bff', '#2ecc8a', '#f5a623', '#ff5f72', '#a78bfa', '#34d399
 const $ = (id) => document.getElementById(id);
 const fmt = (n, dec = 2) => isNaN(n) || n === null ? '—' : parseFloat(n).toFixed(dec);
 
-function showScreen(id, animClass = null) {
+function showScreen(id, animClass = null, pushToHistory = true) {
   document.querySelectorAll('.screen').forEach((s) => {
     s.classList.remove('active', 'slide-in-right', 'slide-in-left');
   });
@@ -48,7 +48,6 @@ function showScreen(id, animClass = null) {
     if (animClass) target.classList.add(animClass);
   }
   
-  // Encender bolitas solo en Dashboard y Agenda
   const dots = $('swipe-dots');
   if (dots) {
     if (id === 's-dashboard' || id === 's-agenda') {
@@ -58,6 +57,11 @@ function showScreen(id, animClass = null) {
     } else {
       dots.style.display = 'none';
     }
+  }
+
+  // ── NUEVO: Guardar la ruta en el navegador ──
+  if (pushToHistory && id !== 's-auth' && id !== 's-loading') {
+    window.history.pushState({ screen: id }, '', `#${id}`);
   }
 }
 
@@ -137,11 +141,18 @@ const Auth = {
     if (el) el.innerHTML = `"${q.texto}" <br><span style="font-style:normal;color:var(--text3);font-size:11px">— ${q.autor}</span>`;
   },
   async afterLogin() {
-    showScreen('s-loading'); const saved = await DB.load();
+    showScreen('s-loading', null, false); // El false evita que la pantalla de carga se guarde en el historial
+
+    // ── NUEVO: Destruir el rastro del token de Google en la URL ──
+    if (window.location.hash.includes('access_token') || window.location.search.includes('code')) {
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+
+    const saved = await DB.load();
     if (saved) {
       State.materias = saved.materias || []; 
       State.historial = saved.historial || []; 
-      State.agenda = saved.agenda || []; // <-- Cargamos agenda
+      State.agenda = saved.agenda || [];
       State.minPass = saved.minPass ?? 6.0;
     }
     
@@ -950,6 +961,18 @@ initSwipes() {
   loadTheme() { if (localStorage.getItem('gradecalc-theme') === 'light') { document.body.classList.add('light-theme'); } },
   syncThemeBtn() { const btn = document.getElementById('btn-theme'); if (!btn) return; btn.textContent = document.body.classList.contains('light-theme') ? '☾' : '☼'; },
 };
+
+// ── GESTIÓN DEL BOTÓN ATRÁS DEL NAVEGADOR ──
+window.addEventListener('popstate', (e) => {
+  if (e.state && e.state.screen) {
+    // Si hay una pantalla guardada, retrocedemos a ella (con el false evitamos un bucle)
+    showScreen(e.state.screen, 'slide-in-left', false);
+  } else if (State.user) {
+    // Si no hay historial pero estamos logueados, forzamos el dashboard
+    App.buildDashboard();
+    showScreen('s-dashboard', 'slide-in-left', false);
+  }
+});
 
 // ── BOOT ────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => { App.loadTheme(); App.initSwipes(); Auth.init(); });
