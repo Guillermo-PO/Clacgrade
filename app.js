@@ -804,18 +804,26 @@ initSwipes() {
     scheduleSave(); App.buildMateriaDetail();
   },
 
-  buildMateriaDetail() {
+ buildMateriaDetail() {
     const mat = State.materias[State.activeMateria]; const avg = Calc.materiaAvg(mat); const total = Calc.materiaTotal(mat);
-    $('mat-header-badge').innerHTML = `<span class="badge ${avg !== null && avg >= State.minPass ? 'badge-green' : avg !== null ? 'badge-red' : ''}">${badgeForGrade(avg)}</span>`;
+    
+    const badgeEl = $('mat-header-badge');
+    if (badgeEl) {
+      badgeEl.innerHTML = `<span class="badge ${avg !== null && avg >= State.minPass ? 'badge-green' : avg !== null ? 'badge-red' : ''}">${badgeForGrade(avg)}</span>`;
+    }
+    
     const rubroHtml = mat.rubros.map((r, ri) => {
       const ravg = Calc.rubroAvg(r); const pend = r.pendientes ?? 0;
       const chipColor = ravg === null ? 'var(--text3)' : ravg >= State.minPass ? 'var(--green)' : 'var(--red)';
+      
+      // Aquí está la solución exacta para que el cursor no salte:
       const gradesHtml = r.calificaciones.map((g, gi) => `
         <div class="grade-pill">
           <input type="text" id="grade-input-${ri}-${gi}" inputmode="decimal" class="grade-input" value="${g}" placeholder="0.0" oninput="App.updateGrade(${ri},${gi},this.value)" onblur="App.commitGrade(${ri},${gi},this.value,this)">
           <button class="grade-del-btn" onclick="App.removeGrade(${ri},${gi})">✕</button>
         </div>
       `).join('');
+      
       return `
         <div class="rubro-grade-row">
           <div class="rg-header">
@@ -832,41 +840,43 @@ initSwipes() {
         </div>
       `;
     }).join('');
-    $('mat-detail').innerHTML = `
-      <div class="card">
-        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px;">
-          <h2 style="font-size:22px; margin:0;">${mat.nombre || `Materia ${State.activeMateria + 1}`}</h2>
-          
-          <div style="background:var(--bg3); padding:8px 12px; border-radius:var(--r-md); border:1px solid var(--border); display:flex; flex-direction:column; gap:6px; align-items:flex-end;">
-            <label style="display:flex; align-items:center; gap:8px; font-size:12px; cursor:pointer; color:var(--text2);">
-              <input type="checkbox" ${mat.redondeo ? 'checked' : ''} onchange="App.toggleRedondeo(this.checked)" style="width:14px; height:14px; accent-color:var(--accent);">
-              Redondeo
-            </label>
-            <div style="display:${mat.redondeo ? 'flex' : 'none'}; align-items:center; gap:6px; font-size:11px; color:var(--text3);">
-              Umbral: <input type="number" step="0.1" min="0.1" max="0.9" value="${mat.redondeoUmbral || 0.5}" onchange="App.updateUmbral(this.value)" style="width:46px; padding:2px 4px; font-size:11px; text-align:center; background:var(--bg2); border:1px solid var(--border); color:var(--text); border-radius:4px;">
+    
+    const detailEl = $('mat-detail');
+    if (detailEl) {
+      detailEl.innerHTML = `
+        <div class="card">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px;">
+            <h2 style="font-size:22px; margin:0;">${mat.nombre || `Materia ${State.activeMateria + 1}`}</h2>
+            <div style="background:var(--bg3); padding:8px 12px; border-radius:var(--r-md); border:1px solid var(--border); display:flex; flex-direction:column; gap:6px; align-items:flex-end;">
+              <label style="display:flex; align-items:center; gap:8px; font-size:12px; cursor:pointer; color:var(--text2);">
+                <input type="checkbox" ${mat.redondeo ? 'checked' : ''} onchange="App.toggleRedondeo(this.checked)" style="width:14px; height:14px; accent-color:var(--accent);">
+                Redondeo
+              </label>
+              <div style="display:${mat.redondeo ? 'flex' : 'none'}; align-items:center; gap:6px; font-size:11px; color:var(--text3);">
+                Umbral: <input type="number" step="0.1" min="0.1" max="0.9" value="${mat.redondeoUmbral || 0.5}" onchange="App.updateUmbral(this.value)" style="width:46px; padding:2px 4px; font-size:11px; text-align:center; background:var(--bg2); border:1px solid var(--border); color:var(--text); border-radius:4px;">
+              </div>
             </div>
           </div>
+          <div class="metrics">
+            <div class="metric"><div class="m-label">Promedio actual</div><div id="live-avg" class="big-grade ${gradeClass(avg)}">${avg !== null ? fmt(avg) : '—'}</div><div class="m-sub">Solo rubros con datos</div></div>
+            <div class="metric"><div class="m-label">Calificación total</div><div id="live-total" class="big-grade ${gradeClass(total)}">${fmt(total)}</div><div class="m-sub">Ponderado 100%</div></div>
+          </div>
+          <h3 style="font-size:14px;margin:24px 0 16px;">Calificaciones por rubro</h3>
+          <div style="background:var(--bg3);border-radius:var(--r-lg);padding:0 16px;border:1px solid var(--border);">${rubroHtml}</div>
         </div>
-        
-        <div class="metrics">
-          <div class="metric"><div class="m-label">Promedio actual</div><div id="live-avg" class="big-grade ${gradeClass(avg)}">${avg !== null ? fmt(avg) : '—'}</div><div class="m-sub">Solo rubros con datos</div></div>
-          <div class="metric"><div class="m-label">Calificación total</div><div id="live-total" class="big-grade ${gradeClass(total)}">${fmt(total)}</div><div class="m-sub">Ponderado 100%</div></div>
+        <div id="predict-wrap">${App._buildPredictHtml(mat)}</div>
+        <div class="card" style="margin-top:16px;">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+            <div style="width:40px;height:40px;border-radius:10px;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;">🎯</div>
+            <div><h3 style="font-size:15px;">Simulador de Promedio Objetivo</h3></div>
+          </div>
+          <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;">
+            <input type="number" id="inp-target" placeholder="Ej: 8.5" min="0" max="10" step="0.1" style="width:80px; padding:6px 10px; font-size:14px; text-align:center;" oninput="App.calcTargetGrade(this.value)">
+            <div id="target-result" style="font-size:13px;color:var(--text2);line-height:1.4;">Ingresa tu calificación deseada para calcular la optimización matemática en tus ítems pendientes.</div>
+          </div>
         </div>
-        <h3 style="font-size:14px;margin:24px 0 16px;">Calificaciones por rubro</h3>
-        <div style="background:var(--bg3);border-radius:var(--r-lg);padding:0 16px;border:1px solid var(--border);">${rubroHtml}</div>
-      </div>
-      <div id="predict-wrap">${App._buildPredictHtml(mat)}</div>
-      <div class="card" style="margin-top:16px;">
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
-          <div style="width:40px;height:40px;border-radius:10px;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;">🎯</div>
-          <div><h3 style="font-size:15px;">Simulador de Promedio Objetivo</h3></div>
-        </div>
-        <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;">
-          <input type="number" id="inp-target" placeholder="Ej: 8.5" min="0" max="10" step="0.1" style="width:80px; padding:6px 10px; font-size:14px; text-align:center;" oninput="App.calcTargetGrade(this.value)">
-          <div id="target-result" style="font-size:13px;color:var(--text2);line-height:1.4;">Ingresa tu calificación deseada para calcular la optimización matemática en tus ítems pendientes.</div>
-        </div>
-      </div>
-    `;
+      `;
+    }
   },
   setPendientes(ri, val) { State.materias[State.activeMateria].rubros[ri].pendientes = Math.max(0, val); scheduleSave(); App.buildMateriaDetail(); },
 
