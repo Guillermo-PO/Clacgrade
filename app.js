@@ -463,19 +463,46 @@ initSwipes() {
     URL.revokeObjectURL(url); toast('Archivo descargado');
   },
 
-  openAnalytics() { showScreen('s-analytics', 'slide-in-right'); App.renderHistoryList(); App.renderChart(); },
+ openAnalytics() { 
+    showScreen('s-analytics'); // Se abre estático, sin efecto de deslizamiento lateral
+    App.renderAnalyticsKPIs();
+    App.renderHistoryList(); 
+    App.renderChart(); 
+  },
+
+  renderAnalyticsKPIs() {
+    // Calculamos el promedio del semestre actual
+    const avgs = State.materias.map(m => Calc.materiaAvg(m)).filter(v => v !== null);
+    const currentAvg = avgs.length ? avgs.reduce((a, b) => a + b, 0) / avgs.length : null;
+    
+    // Unimos los promedios pasados con el actual
+    let allProms = State.historial.map(h => parseFloat(h.promedio));
+    if (currentAvg !== null) allProms.push(currentAvg);
+    
+    // KPIs Clave
+    const globalAvg = allProms.length ? allProms.reduce((a,b) => a+b, 0) / allProms.length : null;
+    const best = allProms.length ? Math.max(...allProms) : null;
+    
+    $('analytics-kpis').innerHTML = `
+      <div class="metric"><div class="m-label">Promedio Global</div><div class="big-grade" style="font-size:32px;">${globalAvg !== null ? fmt(globalAvg) : '—'}</div></div>
+      <div class="metric"><div class="m-label">Mejor Semestre</div><div class="big-grade" style="font-size:32px; color:var(--green);">${best !== null ? fmt(best) : '—'}</div></div>
+    `;
+  },
+
   addHistory() {
     const sem = $('hist-sem').value.trim(); const prom = parseFloat($('hist-prom').value);
     if (!sem) { toast('Escribe el semestre'); return; }
     if (isNaN(prom) || prom < 0 || prom > 10) { toast('Promedio inválido'); return; }
     State.historial.push({ semestre: sem, promedio: prom });
     $('hist-sem').value = ''; $('hist-prom').value = '';
-    scheduleSave(); App.renderHistoryList(); App.renderChart(); toast('Historial guardado');
+    scheduleSave(); App.renderAnalyticsKPIs(); App.renderHistoryList(); App.renderChart(); toast('Historial guardado');
   },
+  
   delHistory(idx) {
     if (!confirm('¿Eliminar este registro?')) return;
-    State.historial.splice(idx, 1); scheduleSave(); App.renderHistoryList(); App.renderChart();
+    State.historial.splice(idx, 1); scheduleSave(); App.renderAnalyticsKPIs(); App.renderHistoryList(); App.renderChart();
   },
+  
   renderHistoryList() {
     const container = $('history-list');
     if (!State.historial.length) {
@@ -487,27 +514,49 @@ initSwipes() {
         <span class="hist-sem">${h.semestre}</span>
         <div style="display:flex; align-items:center; gap:12px;">
           <span class="hist-prom">${fmt(h.promedio)}</span>
-          <button class="hist-del" onclick="App.delHistory(${i})">✕</button>
+          <button class="btn-icon" style="width:26px; height:26px; font-size:12px; color:var(--red); background:var(--red-bg);" onclick="App.delHistory(${i})">✕</button>
         </div>
       </div>
     `).join('');
   },
+  
   renderChart() {
     const ctx = document.getElementById('analyticsChart'); if (!ctx) return;
     if (analyticsChartInstance) analyticsChartInstance.destroy();
+    
     const labels = State.historial.map((h) => h.semestre);
     const data = State.historial.map((h) => h.promedio);
+    
     const avgs = State.materias.map((m) => Calc.materiaAvg(m)).filter((v) => v !== null);
-    const globalAvg = avgs.length ? avgs.reduce((a, b) => a + b, 0) / avgs.length : null;
-    if (globalAvg !== null) { labels.push('Semestre Actual'); data.push(globalAvg); }
+    const currentAvg = avgs.length ? avgs.reduce((a, b) => a + b, 0) / avgs.length : null;
+    if (currentAvg !== null) { labels.push('Actual'); data.push(currentAvg); }
+    
     const accentColor = getComputedStyle(document.body).getPropertyValue('--accent').trim() || '#5d7bff';
+    
     analyticsChartInstance = new Chart(ctx, {
       type: 'line',
       data: {
         labels,
-        datasets: [{ label: 'Promedio', data, borderColor: accentColor, backgroundColor: 'rgba(93, 123, 255, 0.1)', borderWidth: 2, fill: true, tension: 0.3, pointBackgroundColor: accentColor }],
+        datasets: [{ 
+          label: 'Promedio', 
+          data, 
+          borderColor: accentColor, 
+          backgroundColor: 'rgba(93, 123, 255, 0.1)', 
+          borderWidth: 2, 
+          fill: true, 
+          tension: 0.3, 
+          pointBackgroundColor: accentColor 
+        }],
       },
-      options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 10, grid: { color: 'rgba(255,255,255,0.05)' } }, x: { grid: { display: false } } } },
+      options: { 
+        responsive: true, 
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } }, 
+        scales: { 
+          y: { min: 0, max: 10, grid: { color: 'rgba(255,255,255,0.05)' } }, 
+          x: { grid: { display: false } } 
+        } 
+      },
     });
   },
 
