@@ -560,6 +560,56 @@ initSwipes() {
     });
   },
 
+  calcGlobalTarget() {
+    const target = parseFloat($('global-target').value);
+    const rem = parseInt($('global-rem').value);
+    const resEl = $('global-target-result');
+    
+    // Si los campos están vacíos o no tienen sentido, mostramos el mensaje por defecto
+    if (isNaN(target) || isNaN(rem) || rem <= 0 || target < 0 || target > 10) {
+      resEl.innerHTML = 'Ingresa tu meta de graduación y cuántos semestres te faltan para calcular qué promedio necesitas mantener.';
+      resEl.style.color = 'var(--text2)';
+      resEl.style.background = 'var(--bg3)';
+      return;
+    }
+
+    // 1. Obtener el promedio del semestre actual
+    const avgs = State.materias.map(m => Calc.materiaAvg(m)).filter(v => v !== null);
+    const currentAvg = avgs.length ? avgs.reduce((a, b) => a + b, 0) / avgs.length : null;
+    
+    // 2. Unir todo tu historial + semestre actual
+    let allProms = State.historial.map(h => parseFloat(h.promedio));
+    if (currentAvg !== null) allProms.push(currentAvg);
+
+    const nDone = allProms.length;
+    if (nDone === 0) {
+      resEl.innerHTML = '⚠️ Necesitas tener al menos una materia con calificaciones en el semestre actual o un semestre en el historial.';
+      return;
+    }
+
+    // 3. Ecuación para despejar el promedio necesario
+    const sumDone = allProms.reduce((a, b) => a + b, 0);
+    const nTotal = nDone + rem;
+    
+    const requiredSum = (target * nTotal) - sumDone;
+    const requiredAvg = requiredSum / rem;
+
+    // 4. Mostrar resultados con colores dinámicos
+    if (requiredAvg > 10) {
+      resEl.innerHTML = `⚠️ <strong>Imposible:</strong> Necesitarías un promedio de <strong>${requiredAvg.toFixed(2)}</strong> en tus próximos semestres, lo cual supera el 10 perfecto.`;
+      resEl.style.color = 'var(--red)';
+      resEl.style.background = 'var(--red-bg)';
+    } else if (requiredAvg <= target && requiredSum <= 0) {
+      resEl.innerHTML = `✓ <strong>Meta asegurada:</strong> Tu promedio actual ya cubre tu objetivo.`;
+      resEl.style.color = 'var(--green)';
+      resEl.style.background = 'var(--green-bg)';
+    } else {
+      resEl.innerHTML = `🎯 Para graduarte con <strong>${target}</strong>, necesitas mantener un promedio exacto de <strong>${requiredAvg.toFixed(2)}</strong> en tus próximos ${rem} semestre${rem > 1 ? 's' : ''}.`;
+      resEl.style.color = 'var(--accent2)';
+      resEl.style.background = 'rgba(93, 123, 255, 0.1)';
+    }
+  },
+  
   resetAll() {
     if (!confirm('¿Borrar toda la configuración de materias y empezar de nuevo? El historial de analíticas se mantendrá.')) return;
     State.materias = []; State.agenda = [];
