@@ -93,51 +93,64 @@ function badgeForGrade(g) {
 // ── SUPABASE DB ─────────────────────────────────────
 const DB = {
   async load() {
-    // 1. Intentar cargar desde Supabase si hay internet
+    const localDataRaw = localStorage.getItem('calcgrade_data');
+    const localData = localDataRaw ? JSON.parse(localDataRaw) : null;
+    const needsSync = localStorage.getItem('calcgrade_needs_sync') === 'true';
+
+    // Si hay internet...
     if (navigator.onLine) {
+      // CASO A: Regresó el internet y tenemos datos offline pendientes de subir
+      if (needsSync && localData) {
+        console.log("Subiendo trabajo offline a la nube...");
+        await this.save(localData); // Subimos lo local a Supabase
+        return localData;
+      }
+
+      // CASO B: Flujo normal, descargamos la copia maestra de la nube
       try {
         const { data, error } = await _supa.from('profiles').select('data').eq('id', State.user.id).single();
         if (!error && data?.data) {
-          // Si la nube responde bien, actualizamos nuestro respaldo local de seguridad
-          localStorage.setItem('calcgrade_data', JSON.stringify(data.data));
+          localStorage.setItem('calcgrade_data', JSON.stringify(data.data)); // Respaldamos en el teléfono
           return data.data;
         }
       } catch (e) {
-        console.warn("Sin respuesta de la nube, cargando datos locales...");
+        console.warn("Sin respuesta de la nube...");
       }
     }
     
-    // 2. Si estamos offline (o falló la nube), leemos el respaldo del teléfono
-    const localData = localStorage.getItem('calcgrade_data');
-    return localData ? JSON.parse(localData) : null;
+    // Si no hay internet o falló Supabase, mandamos lo del teléfono
+    return localData;
   },
 
   async save(payload) {
     setSyncState('syncing');
-
-    // 1. GUARDADO LOCAL INMEDIATO (Infalible, funciona sin internet)
+    
+    // Siempre guardamos en el teléfono primero (inmune a caídas)
     localStorage.setItem('calcgrade_data', JSON.stringify(payload));
 
-    // 2. Si no hay internet, el trabajo terminó. Ya está a salvo en el celular.
+    // Si no hay internet, prendemos la bandera para acordarnos de subirlo luego
     if (!navigator.onLine) {
-      setSyncState('synced'); // Visualmente el usuario ve que se guardó
+      localStorage.setItem('calcgrade_needs_sync', 'true');
+      setSyncState('synced'); 
       return true;
     }
 
-    // 3. RESPALDO EN LA NUBE (Solo si hay conexión)
+    // Si sí hay internet, intentamos subirlo a Supabase
     try {
       const { error } = await _supa.from('profiles').upsert({
         id: State.user.id, 
         data: payload, 
         updated_at: new Date().toISOString(),
       });
-      
       if (error) throw error;
       
+      // Subida exitosa: apagamos la bandera
+      localStorage.removeItem('calcgrade_needs_sync');
       setSyncState('synced'); 
       return true;
     } catch (error) {
-      console.error("Error subiendo a Supabase, pero los datos están a salvo localmente:", error);
+      // Si falló por alguna razón, encendemos la bandera
+      localStorage.setItem('calcgrade_needs_sync', 'true');
       setSyncState('error'); 
       return false;
     }
@@ -1116,14 +1129,46 @@ window.addEventListener('popstate', (e) => {
 document.addEventListener('DOMContentLoaded', () => { 
   App.loadTheme(); 
   App.initSwipes(); 
-  Auth.init(); 
 
-  // Registrar el Service Worker para modo Offline
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js')
-        .then(reg => console.log('Modo Offline listo y activado.'))
-        .catch(err => console.error('Error al activar Modo Offline', err));
-    });
+  // 1. EL BYPASS OFFLINE: Si no hay red pero sí hay datos en el celular
+  if (!navigator.onLine && localStorage.getItem('calcgrade_data')) {
+    console.log("Activando Bypass Offline...");
+    
+    // Creamos un usuario fantasma temporal para que no haya errores
+    State.user = { id: 'offline', email: 'Modo Offline' }; 
+    
+    // Cargamos los datos del teléfono
+    const saved = JSON.parse(localStorage.getItem('calcgrade_data'));
+    State.materias = saved.materias || []; 
+    State.historial = saved.historial || []; 
+    State.agenda = saved.agenda || [];
+    State.minPass = saved.minPass ?? 6.0;
+
+    // Saltamos el login y dibujamos el Dashboard
+    App.buildDashboard(); 
+    showScreen('s-dashboard', null, false);
+
+    // Cambiamos el texto del botón superior para que sepas que estás sin red
+    const btn = document.getElementById('btn-user-menu');
+    if (btn) {
+      btn.textContent = 'Sin Conexión';
+      btn.style.display = 'inline-flex';
+      btn.style.color = '#fff';
+      btn.style.background = 'var(--red)';
+    }
+  } else {
+    // 2. Flujo normal (Con internet, Google hace su trabajo)
+    Auth.init(); 
   }
+
+  // 3. Registrar el Service Worker
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+  }
+});
+
+// 4. AUTO-RECUPERACIÓN: Si de pronto regresa el internet, recargamos la app 
+// para que inicie sesión en silencio y suba tus tareas pendientes a la nube.
+window.addEventListener('online', () => {
+  if (State.user && State.user.id === 'offline') window.location.reload();
 });
