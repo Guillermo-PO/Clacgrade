@@ -457,12 +457,22 @@ const App = {
 initSwipes() {
     let touchStartX = 0;
     let touchEndX = 0;
+    let isCooldown = false; // Evita que la compu cambie de pantalla a lo loco
     
-    // Solo permitimos swipe entre estas dos pantallas
     const swipeScreens = ['s-dashboard', 's-agenda']; 
 
+    // PUENTE INTELIGENTE: Soluciona el Bug de la Agenda Vacía
+    function handleScreenChange(targetId) {
+      if (targetId === 's-agenda') {
+        // Forzamos la creación del HTML antes de que la pantalla se vuelva visible
+        if (typeof App.buildAgenda === 'function') App.buildAgenda();
+        if (typeof App.renderAgenda === 'function') App.renderAgenda();
+      }
+      showScreen(targetId);
+    }
+
+    // 1. TÁCTIL (Celulares)
     document.addEventListener('touchstart', e => {
-      // Si tocas un input, botón o tarjeta, no hacemos nada
       if (e.target.closest('input, textarea, button, .rubro-grade-row')) return;
       touchStartX = e.changedTouches[0].screenX;
     }, { passive: true });
@@ -475,15 +485,42 @@ initSwipes() {
       if (!currentActive) return;
       
       const currentIndex = swipeScreens.indexOf(currentActive.id);
-      if (currentIndex === -1) return; // Si estamos en analíticas o materia, bloqueamos el swipe
+      if (currentIndex === -1) return; 
 
       const diff = touchStartX - touchEndX;
 
-      // Si deslizaste más de 50px a la izquierda o derecha, cambiamos de pantalla
+      // Sensibilidad estándar para celular (50px)
       if (diff > 50 && currentIndex < swipeScreens.length - 1) {
-        showScreen(swipeScreens[currentIndex + 1]);
+        handleScreenChange(swipeScreens[currentIndex + 1]);
       } else if (diff < -50 && currentIndex > 0) {
-        showScreen(swipeScreens[currentIndex - 1]);
+        handleScreenChange(swipeScreens[currentIndex - 1]);
+      }
+    }, { passive: true });
+
+    // 2. TRACKPAD (Computadoras) - Restaurado y afinado
+    document.addEventListener('wheel', e => {
+      if (isCooldown) return;
+      // Evita que cambies de pantalla por accidente al hacer scroll en un historial largo
+      if (e.target.closest('input, textarea, button, .rubro-grade-row, .history-list')) return;
+
+      const currentActive = document.querySelector('.screen.active');
+      if (!currentActive) return;
+      
+      const currentIndex = swipeScreens.indexOf(currentActive.id);
+      if (currentIndex === -1) return;
+
+      // Filtramos para que solo reaccione a movimientos fuertes HORIZONTALES
+      if (Math.abs(e.deltaX) > 40 && Math.abs(e.deltaY) < 20) {
+        isCooldown = true; // Activamos el escudo
+        
+        if (e.deltaX > 0 && currentIndex < swipeScreens.length - 1) {
+          handleScreenChange(swipeScreens[currentIndex + 1]);
+        } else if (e.deltaX < 0 && currentIndex > 0) {
+          handleScreenChange(swipeScreens[currentIndex - 1]);
+        }
+        
+        // El escudo dura 400ms: Suficiente para no hacer saltos dobles, rápido para no sentirse "muerto"
+        setTimeout(() => { isCooldown = false; }, 400); 
       }
     }, { passive: true });
   },
