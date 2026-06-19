@@ -462,29 +462,28 @@ initSwipes() {
     const swipeScreens = ['s-dashboard', 's-agenda']; 
 
     // PUENTE INTELIGENTE: Cura el bug de la pestaña dormida
+    // PUENTE INTELIGENTE: Solución definitiva a la pestaña en blanco
     function handleScreenChange(targetId) {
-      // 1. Construimos la base (los botones) antes de hacerla visible
-      if (targetId === 's-agenda') {
-        if (typeof App.buildAgenda === 'function') App.buildAgenda();
-      }
-
-      // 2. Hacemos visible la pantalla y ejecutamos la animación CSS
+      // 1. Hacemos visible la pantalla
       showScreen(targetId); 
       
-      // 3. El combo anti-Safari: requestAnimationFrame + setTimeout
       if (targetId === 's-agenda') {
-        requestAnimationFrame(() => {
-          setTimeout(() => {
-            // Obligamos a la app a pintar la lista ahora que la pantalla ya existe físicamente
-            if (typeof App.renderAgenda === 'function') App.renderAgenda();
-            
-            // 🔥 SI ESTO NO BASTA, SIMULAMOS EL CLIC:
-            // Si tienes una función específica que se dispara al tocar "Lista",
-            // actívala aquí. Por ejemplo, descomenta la línea de abajo si tienes algo así:
-            // if (typeof App.showAgendaList === 'function') App.showAgendaList();
-            
-          }, 150); // 150ms es invisible para el ojo, pero le da tiempo al iPhone de reaccionar
-        });
+        // 2. Construimos la estructura básica (botones de Lista/Calendario)
+        if (typeof App.buildAgenda === 'function') App.buildAgenda();
+
+        // 3. Esperamos 50 milisegundos y forzamos el clic en la pestaña
+        setTimeout(() => {
+          if (typeof App.renderAgenda === 'function') App.renderAgenda();
+          
+          // EL TRUCO DE ORO: Buscamos el botón "Lista" y le hacemos clic automáticamente
+          const botones = document.querySelectorAll('#s-agenda button, #s-agenda div, #s-agenda span');
+          for (let btn of botones) {
+            if (btn.textContent.trim() === 'Lista') {
+              btn.click(); // Esto dispara la misma función que usas para arreglarlo manualmente
+              break;
+            }
+          }
+        }, 50);
       }
     }
     // 1. TÁCTIL (Celulares) - Se queda pasivo para máxima fluidez
