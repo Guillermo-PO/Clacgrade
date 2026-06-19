@@ -463,14 +463,18 @@ initSwipes() {
 
     // PUENTE INTELIGENTE: Cura el bug de la pantalla vacía
     function handleScreenChange(targetId) {
-      showScreen(targetId); // 1. Hacemos visible la pantalla primero
+      showScreen(targetId); // Inicia la animación de cambio de pantalla
       
-      // 2. Le damos 10 milisegundos al navegador para que reconozca el espacio, y dibujamos
       if (targetId === 's-agenda') {
+        // 1. Cargamos los datos en memoria de inmediato
+        if (typeof App.buildAgenda === 'function') App.buildAgenda();
+        if (typeof App.renderAgenda === 'function') App.renderAgenda();
+
+        // 2. El truco anti-Safari: Obligamos a la pantalla a "repintarse" 
+        // exactamente a los 350ms (justo cuando la animación de deslizamiento termina).
         setTimeout(() => {
-          if (typeof App.buildAgenda === 'function') App.buildAgenda();
           if (typeof App.renderAgenda === 'function') App.renderAgenda();
-        }, 10);
+        }, 350);
       }
     }
 
