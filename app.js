@@ -461,23 +461,32 @@ initSwipes() {
     
     const swipeScreens = ['s-dashboard', 's-agenda']; 
 
-    // PUENTE INTELIGENTE: Cura el bug de la pantalla vacía
+    // PUENTE INTELIGENTE: Cura el bug de la pestaña dormida
     function handleScreenChange(targetId) {
-      showScreen(targetId); // Inicia la animación de cambio de pantalla
-      
+      // 1. Construimos la base (los botones) antes de hacerla visible
       if (targetId === 's-agenda') {
-        // 1. Cargamos los datos en memoria de inmediato
         if (typeof App.buildAgenda === 'function') App.buildAgenda();
-        if (typeof App.renderAgenda === 'function') App.renderAgenda();
+      }
 
-        // 2. El truco anti-Safari: Obligamos a la pantalla a "repintarse" 
-        // exactamente a los 350ms (justo cuando la animación de deslizamiento termina).
-        setTimeout(() => {
-          if (typeof App.renderAgenda === 'function') App.renderAgenda();
-        }, 350);
+      // 2. Hacemos visible la pantalla y ejecutamos la animación CSS
+      showScreen(targetId); 
+      
+      // 3. El combo anti-Safari: requestAnimationFrame + setTimeout
+      if (targetId === 's-agenda') {
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            // Obligamos a la app a pintar la lista ahora que la pantalla ya existe físicamente
+            if (typeof App.renderAgenda === 'function') App.renderAgenda();
+            
+            // 🔥 SI ESTO NO BASTA, SIMULAMOS EL CLIC:
+            // Si tienes una función específica que se dispara al tocar "Lista",
+            // actívala aquí. Por ejemplo, descomenta la línea de abajo si tienes algo así:
+            // if (typeof App.showAgendaList === 'function') App.showAgendaList();
+            
+          }, 150); // 150ms es invisible para el ojo, pero le da tiempo al iPhone de reaccionar
+        });
       }
     }
-
     // 1. TÁCTIL (Celulares) - Se queda pasivo para máxima fluidez
     document.addEventListener('touchstart', e => {
       if (e.target.closest('input, textarea, button, .rubro-grade-row')) return;
