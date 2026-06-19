@@ -455,44 +455,98 @@ const App = {
   _activeMatColor: PALETTE[0],
 
 initSwipes() {
-    const thresh = 40; 
-    let touchStartX = 0;
-    let isTransitioning = false;
+    let startX = 0;
+    let currentX = 0;
+    let isMoving = false;
+    let activeScreenEl = null;
+    let width = window.innerWidth;
 
-    // Escuchamos en todo el documento (0 puntos muertos)
-    document.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].screenX; }, { passive: true });
-    
-    document.addEventListener('touchend', e => {
-      const diff = touchStartX - e.changedTouches[0].screenX;
+    // Lista de tus pantallas principales en orden de navegación horizontal
+    const mainScreens = ['s-dashboard', 's-analytics', 's-agenda']; 
+
+    // Detectar en qué pantalla estamos actualmente
+    function getActiveIndex() {
+      const currentScreen = document.querySelector('.screen.active')?.id;
+      return mainScreens.indexOf(currentScreen);
+    }
+
+    document.addEventListener('touchstart', (e) => {
+      // Ignorar swipes si se originan dentro de inputs, textareas o las tarjetas de rubros
+      if (e.target.closest('input, select, textarea, .rubro-grade-row, button')) return;
       
-      // Si estamos en el Dashboard y deslizamos a la izquierda
-      if ($('s-dashboard') && $('s-dashboard').classList.contains('active')) {
-        if (diff > thresh) Agenda.openAgenda();
-      } 
-      // Si estamos en la Agenda y deslizamos a la derecha
-      else if ($('s-agenda') && $('s-agenda').classList.contains('active')) {
-        if (diff < -thresh) App.goBack('slide-in-left');
-      }
+      const idx = getActiveIndex();
+      if (idx === -1) return; // Si estamos en una pantalla secundaria (como detalles), no activar swipe
+
+      startX = e.touches[0].clientX;
+      activeScreenEl = document.getElementById(mainScreens[idx]);
+      width = window.innerWidth;
+      isMoving = true;
+
+      // Quitamos la transición CSS temporalmente para que el movimiento responda al instante del dedo
+      if (activeScreenEl) activeScreenEl.style.transition = 'none';
     }, { passive: true });
 
-    document.addEventListener('wheel', e => {
-      if (isTransitioning) return;
-      
-      if ($('s-dashboard') && $('s-dashboard').classList.contains('active')) {
-        if (e.deltaX > 25) { 
-          isTransitioning = true;
-          Agenda.openAgenda();
-          setTimeout(() => isTransitioning = false, 500);
-        }
-      } 
-      else if ($('s-agenda') && $('s-agenda').classList.contains('active')) {
-        if (e.deltaX < -25) { 
-          isTransitioning = true;
-          App.goBack('slide-in-left');
-          setTimeout(() => isTransitioning = false, 500);
-        }
+    document.addEventListener('touchmove', (e) => {
+      if (!isMoving || !activeScreenEl) return;
+
+      currentX = e.touches[0].clientX;
+      const diffX = currentX - startX;
+      const idx = getActiveIndex();
+
+      // Evitar que arrastre hacia la izquierda si es la primera pantalla, o a la derecha si es la última
+      if ((idx === 0 && diffX > 0) || (idx === mainScreens.length - 1 && diffX < 0)) {
+        return; 
       }
+
+      // Desplazamos la pantalla actual exactamente los mismos píxeles que se mueve el dedo
+      activeScreenEl.style.transform = `translateX(${diffX}px)`;
     }, { passive: true });
+
+    document.addEventListener('touchend', (e) => {
+      if (!isMoving || !activeScreenEl) return;
+      isMoving = false;
+
+      const diffX = currentX - startX;
+      const idx = getActiveIndex();
+      const threshold = width * 0.25; // Se requiere mover al menos el 25% de la pantalla para cambiar
+
+      // Devolvemos la transición suave por CSS para el cierre de la animación
+      activeScreenEl.classList.add('swipe-transition');
+      activeScreenEl.style.transition = ''; 
+
+      if (diffX < -threshold && idx < mainScreens.length - 1) {
+        // SWIPE IZQUIERDA: Ir al siguiente panel
+        activeScreenEl.style.transform = `translateX(-100%)`;
+        setTimeout(() => {
+          activeScreenEl.style.transform = '';
+          activeScreenEl.classList.remove('swipe-transition');
+          // Aquí llamas a tu función existente para cambiar de pantalla
+          showScreen(mainScreens[idx + 1]); 
+        }, 300);
+      } 
+      else if (diffX > threshold && idx > 0) {
+        // SWIPE DERECHA: Ir al panel anterior
+        activeScreenEl.style.transform = `translateX(100%)`;
+        setTimeout(() => {
+          activeScreenEl.style.transform = '';
+          activeScreenEl.classList.remove('swipe-transition');
+          showScreen(mainScreens[idx - 1]);
+        }, 300);
+      } 
+      else {
+        // REBOTE: No se movió lo suficiente, regresar al centro de forma elástica
+        activeScreenEl.style.transform = 'translateX(0)';
+        setTimeout(() => {
+          activeScreenEl.style.transform = '';
+          activeScreenEl.classList.remove('swipe-transition');
+        }, 300);
+      }
+      
+      // Resetear variables
+      startX = 0;
+      currentX = 0;
+      activeScreenEl = null;
+    });
   },
   
   exportCSV() {
