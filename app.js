@@ -445,8 +445,19 @@ const Agenda = {
     const widget = $('dash-agenda-widget'); if(widget) widget.style.display = 'block'; 
     toast('Guardado en Agenda');
   },
-  toggleDone(id) { const ev = State.agenda.find(e => e.id === id); if (ev) ev.completado = !ev.completado; scheduleSave(); this.render(); },
-  deleteEvent(id) { State.agenda = State.agenda.filter(e => e.id !== id); scheduleSave(); this.render(); }
+ toggleDone(id) { 
+    const ev = State.agenda.find(e => e.id === id); 
+    if (ev) ev.completado = !ev.completado; 
+    scheduleSave(); 
+    this.render(); 
+    if (typeof App.buildDashboard === 'function') App.buildDashboard(); 
+  },
+  deleteEvent(id) { 
+    State.agenda = State.agenda.filter(e => e.id !== id); 
+    scheduleSave(); 
+    this.render(); 
+    if (typeof App.buildDashboard === 'function') App.buildDashboard(); 
+  }
 };
 
 // ── APP ─────────────────────────────────────────────
