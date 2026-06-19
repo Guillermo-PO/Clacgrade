@@ -334,8 +334,8 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
   display: flex; 
   justify-content: center; 
   gap: 8px; 
-  z-index: 100; /* Prioridad baja para no tapar modales */
-  pointer-events: none; 
+  z-index: 100; 
+  pointer-events: none !important; /* El !important evita que bloquee tus botones */
 }
 .s-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border2); transition: background 0.3s, transform 0.3s; }
 .s-dot.active { background: var(--accent); transform: scale(1.2); }
