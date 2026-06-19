@@ -5,8 +5,7 @@ const ASSETS = [
   './styles.css',
   './app.js',
   './manifest.json',
-  './icon.svg',
-  './icon-ios.png'
+  './icon.png'
 ];
 
 // 1. Instalar el Service Worker y guardar la App en el caché del teléfono
