@@ -1,32 +1,37 @@
-const CACHE_NAME = 'calcgrade-cache-v1';
+const CACHE_NAME = 'calcgrade-v3';
 const ASSETS = [
-  './',
-  './index.html',
-  './styles.css',
-  './app.js',
-  './manifest.json',
-  './icon.png'
+  '/',
+  '/index.html',
+  '/styles.css',
+  '/app.js',
+  '/manifest.json',
+  '/icon.png'
 ];
 
-// 1. Instalar el Service Worker y guardar la App en el caché del teléfono
+// 1. INSTALACIÓN A PRUEBA DE FALLOS
 self.addEventListener('install', (e) => {
   e.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS);
+    caches.open(CACHE_NAME).then(async (cache) => {
+      // Guardamos uno por uno. Si un archivo falta, no destruye toda la app.
+      for (let asset of ASSETS) {
+        try {
+          await cache.add(asset);
+        } catch (err) {
+          console.warn('Advertencia: No se pudo cachear ->', asset);
+        }
+      }
     })
   );
   self.skipWaiting();
 });
 
-// 2. Activar y limpiar versiones viejas de la app si las hubiera
+// 2. ACTIVACIÓN Y LIMPIEZA DE VERSIONES ANTERIORES
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys().then((keys) => {
       return Promise.all(
         keys.map((key) => {
-          if (key !== CACHE_NAME) {
-            return caches.delete(key);
-          }
+          if (key !== CACHE_NAME) return caches.delete(key);
         })
       );
     })
@@ -34,24 +39,23 @@ self.addEventListener('activate', (e) => {
   self.clients.claim();
 });
 
-// 3. Interceptar peticiones: Si hay internet busca lo nuevo, si no, usa el caché
+// 3. INTERCEPTOR (ESTRATEGIA: "Red primero, Caché como respaldo")
 self.addEventListener('fetch', (e) => {
-  // Solo interceptar archivos de nuestra propia app
-  if (e.request.url.startsWith(self.location.origin)) {
-    e.respondWith(
-      caches.match(e.request).then((cachedResponse) => {
-        if (cachedResponse) {
-          // Devolvemos lo que está en caché, pero buscamos en la red de fondo por si cambió
-          fetch(e.request).then((networkResponse) => {
-            if (networkResponse.status === 200) {
-              caches.open(CACHE_NAME).then((cache) => cache.put(e.request, networkResponse));
-            }
-          }).catch(() => {/* Silenciar errores de red offline */});
-          
-          return cachedResponse;
-        }
-        return fetch(e.request);
+  if (e.request.method !== 'GET') return;
+  
+  e.respondWith(
+    fetch(e.request)
+      .then((res) => {
+        // Si hay internet, guardamos una copia fresca en el caché en secreto
+        const resClone = res.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(e.request, resClone));
+        return res;
       })
-    );
-  }
+      .catch(() => {
+        // Si falló (Modo Avión), sacamos la copia de emergencia del caché
+        return caches.match(e.request).then((cachedRes) => {
+          return cachedRes || caches.match('/'); // Si no encuentra la ruta exacta, manda al inicio
+        });
+      })
+  );
 });
