@@ -157,6 +157,31 @@ const DB = {
   },
 };
 
+// Función para guardar automáticamente en segundo plano
+function scheduleSave() {
+  // Limpiamos cualquier guardado pendiente para no hacer peticiones dobles
+  if (State.syncTimer) clearTimeout(State.syncTimer); 
+  
+  // Envolvemos el indicador visual en un try-catch para que no rompa botones offline
+  try { 
+    if (typeof setSyncState === 'function') setSyncState('syncing'); 
+  } catch(e) { /* Silenciamos el error visual si no existe */ }
+  
+  // Programamos el guardado para dentro de un segundo
+  State.syncTimer = setTimeout(async () => {
+    try {
+      await DB.save({ 
+        materias: State.materias, 
+        minPass: State.minPass, 
+        historial: State.historial, 
+        agenda: State.agenda 
+      });
+    } catch(e) {
+      console.error("Error guardando datos de fondo:", e);
+    }
+  }, 1200);
+}
+
 // ── AUTH ────────────────────────────────────────────
 const Auth = {
   currentTab: 'login', _initialized: false,
