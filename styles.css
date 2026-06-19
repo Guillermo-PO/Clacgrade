@@ -33,17 +33,20 @@ body { font-family:var(--sans); color:var(--text); background:var(--bg); min-hei
 
 /* ── Screens & Swipe Animations ── */
 /* PANTALLAS Y ANIMACIÓN SUAVE */
+/* PANTALLAS: VERSIÓN ESTABLE Y LIMPIA */
 .screen {
   display: none;
   opacity: 0;
-  transform: translateX(15px); /* Inicia ligeramente a la derecha */
-  transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+  animation: fadeIn 0.2s ease-out forwards;
 }
 
 .screen.active {
   display: block;
-  opacity: 1;
-  transform: translateX(0); /* Se acomoda en su lugar */
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateX(10px); }
+  to { opacity: 1; transform: translateX(0); }
 }
 #s-auth.active { display:flex; }
 #s-loading.active { display:flex; }
