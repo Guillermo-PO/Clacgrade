@@ -474,9 +474,10 @@ initSwipes() {
 
     // PUENTE INTELIGENTE: Cura el bug de la pestaña dormida
     // PUENTE INTELIGENTE: Solución definitiva a la pestaña en blanco
-    function handleScreenChange(targetId) {
-      // 1. Hacemos visible la pantalla
-      showScreen(targetId); 
+    // 👇 CAMBIO 1: Le agregamos "animClass" aquí 👇
+    function handleScreenChange(targetId, animClass) {
+      // 1. Hacemos visible la pantalla con su animación
+      showScreen(targetId, animClass); // 👇 CAMBIO 2: Se lo pasamos a showScreen 👇
       
       if (targetId === 's-agenda') {
         // 2. Construimos la estructura básica (botones de Lista/Calendario)
@@ -497,6 +498,7 @@ initSwipes() {
         }, 50);
       }
     }
+
     // 1. TÁCTIL (Celulares) - Se queda pasivo para máxima fluidez
     document.addEventListener('touchstart', e => {
       if (e.target.closest('input, textarea, button, .rubro-grade-row')) return;
@@ -516,9 +518,11 @@ initSwipes() {
       const diff = touchStartX - touchEndX;
 
       if (diff > 50 && currentIndex < swipeScreens.length - 1) {
-        handleScreenChange(swipeScreens[currentIndex + 1]);
+        // 👇 CAMBIO 3: Le decimos que va a la derecha 👇
+        handleScreenChange(swipeScreens[currentIndex + 1], 'slide-in-right'); 
       } else if (diff < -50 && currentIndex > 0) {
-        handleScreenChange(swipeScreens[currentIndex - 1]);
+        // 👇 CAMBIO 4: Le decimos que regresa a la izquierda 👇
+        handleScreenChange(swipeScreens[currentIndex - 1], 'slide-in-left'); 
       }
     }, { passive: true });
 
@@ -543,9 +547,11 @@ initSwipes() {
         isCooldown = true; 
         
         if (e.deltaX > 0 && currentIndex < swipeScreens.length - 1) {
-          handleScreenChange(swipeScreens[currentIndex + 1]);
+          // 👇 CAMBIO 5: Derecha en trackpad 👇
+          handleScreenChange(swipeScreens[currentIndex + 1], 'slide-in-right'); 
         } else if (e.deltaX < 0 && currentIndex > 0) {
-          handleScreenChange(swipeScreens[currentIndex - 1]);
+          // 👇 CAMBIO 6: Izquierda en trackpad 👇
+          handleScreenChange(swipeScreens[currentIndex - 1], 'slide-in-left'); 
         }
         
         setTimeout(() => { isCooldown = false; }, 400); 
