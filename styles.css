@@ -343,3 +343,14 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
 /* ── Transiciones Más Fluidas ── */
 .slide-in-right { animation: slideInRight 0.25s cubic-bezier(0.25, 0.8, 0.25, 1) forwards; }
 .slide-in-left  { animation: slideInLeft 0.25s cubic-bezier(0.25, 0.8, 0.25, 1) forwards; }
+
+/* Contenedor o pantallas preparadas para transiciones físicas */
+.screen {
+  will-change: transform; /* Avisa al iPhone que optimice este elemento con la GPU */
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1); /* Curva suave tipo Apple */
+}
+
+/* Clase temporal que aplicaremos SOLO cuando el dedo se separe para el rebote */
+.swipe-transition {
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
