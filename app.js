@@ -457,40 +457,39 @@ const App = {
 initSwipes() {
     let touchStartX = 0;
     let touchEndX = 0;
-    let isCooldown = false; // Evita que un swipe dispare el cambio 5 veces seguidas
+    let isCooldown = false; 
 
-    // IMPORTANTE: Verifica que estos IDs sean EXACTAMENTE los que tienes en tu index.html
-    const mainScreens = ['s-dashboard', 's-analytics', 's-agenda']; 
+    // 1. EL CAMBIO CLAVE: Solo el Dashboard y la Agenda se pueden deslizar.
+    // Analíticas se vuelve un panel aislado (solo se abre y cierra con su botón).
+    const swipeScreens = ['s-dashboard', 's-agenda']; 
 
     function handleSwipe() {
       if (isCooldown) return;
       const diff = touchStartX - touchEndX;
-      const threshold = 60; // Sensibilidad ajustada (requiere un deslizamiento claro)
+      const threshold = 50; 
 
       const currentActive = document.querySelector('.screen.active');
       if (!currentActive) return;
 
-      const currentIndex = mainScreens.indexOf(currentActive.id);
-      if (currentIndex === -1) return; // Ignora el swipe si estás dentro de los detalles de una materia
+      const currentIndex = swipeScreens.indexOf(currentActive.id);
+      // Si estamos en Analíticas o en una Materia, el swipe se desactiva en automático
+      if (currentIndex === -1) return; 
 
-      if (diff > threshold && currentIndex < mainScreens.length - 1) {
-        // Swipe a la izquierda -> Avanzar panel
-        executeSwipe(mainScreens[currentIndex + 1]);
+      if (diff > threshold && currentIndex < swipeScreens.length - 1) {
+        executeSwipe(swipeScreens[currentIndex + 1]);
       } else if (diff < -threshold && currentIndex > 0) {
-        // Swipe a la derecha -> Retroceder panel
-        executeSwipe(mainScreens[currentIndex - 1]);
+        executeSwipe(swipeScreens[currentIndex - 1]);
       }
     }
 
     function executeSwipe(targetScreenId) {
       isCooldown = true;
-      showScreen(targetScreenId); // Usa tu función original, evitando pantallas en blanco
-      setTimeout(() => { isCooldown = false; }, 400); // Bloquea nuevos swipes por medio segundo
+      showScreen(targetScreenId);
+      setTimeout(() => { isCooldown = false; }, 500); // Bloqueo de medio segundo para evitar saltos dobles
     }
 
-    // 1. SOPORTE PARA CELULARES (Toque en pantalla)
+    // SOPORTE PARA CELULAR (Táctil)
     document.addEventListener('touchstart', e => {
-      // Si tocamos un botón, input o las tarjetas, cancelamos el inicio del swipe
       if (e.target.closest('input, textarea, button, .rubro-grade-row')) return;
       touchStartX = e.changedTouches[0].screenX;
     }, { passive: true });
@@ -501,20 +500,26 @@ initSwipes() {
       handleSwipe();
     }, { passive: true });
 
-    // 2. SOPORTE PARA COMPUTADORAS (Trackpad de 2 dedos)
+    // SOPORTE PARA COMPUTADORA (Trackpad) - Versión controlada
+    let wheelTimeout;
     document.addEventListener('wheel', e => {
       if (isCooldown) return;
-      if (e.target.closest('input, textarea, button, .rubro-grade-row')) return;
+      if (e.target.closest('input, textarea, button, .rubro-grade-row, .history-list')) return;
       
-      // Si el deslizamiento horizontal (deltaX) es lo suficientemente fuerte
-      if (Math.abs(e.deltaX) > 40) {
+      // Solo le hacemos caso al trackpad si el movimiento es claramente HORIZONTAL 
+      // (Ignoramos si estás scrolleando hacia abajo o arriba)
+      if (Math.abs(e.deltaX) > 60 && Math.abs(e.deltaY) < 20) {
         touchStartX = e.deltaX > 0 ? 100 : 0;
         touchEndX = 0;
-        handleSwipe();
+        
+        // El timeout agrupa los cientos de eventos del trackpad en uno solo
+        clearTimeout(wheelTimeout);
+        wheelTimeout = setTimeout(() => {
+          handleSwipe();
+        }, 50);
       }
     }, { passive: true });
   },
-  
   exportCSV() {
     let csv = '"CALIFICACIONES"\n\n';
     
