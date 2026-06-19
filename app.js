@@ -455,71 +455,150 @@ const App = {
   _activeMatColor: PALETTE[0],
 
 initSwipes() {
-    let touchStartX = 0;
-    let touchEndX = 0;
-    let isCooldown = false; 
-
-    // 1. EL CAMBIO CLAVE: Solo el Dashboard y la Agenda se pueden deslizar.
-    // Analíticas se vuelve un panel aislado (solo se abre y cierra con su botón).
     const swipeScreens = ['s-dashboard', 's-agenda']; 
+    let isMoving = false, startX = 0, currentX = 0;
+    let activeEl = null, targetEl = null, isNext = false;
+    let screenWidth = window.innerWidth;
+    let wheelAcc = 0, swipeBlocked = false;
 
-    function handleSwipe() {
-      if (isCooldown) return;
-      const diff = touchStartX - touchEndX;
-      const threshold = 50; 
-
-      const currentActive = document.querySelector('.screen.active');
-      if (!currentActive) return;
-
-      const currentIndex = swipeScreens.indexOf(currentActive.id);
-      // Si estamos en Analíticas o en una Materia, el swipe se desactiva en automático
-      if (currentIndex === -1) return; 
-
-      if (diff > threshold && currentIndex < swipeScreens.length - 1) {
-        executeSwipe(swipeScreens[currentIndex + 1]);
-      } else if (diff < -threshold && currentIndex > 0) {
-        executeSwipe(swipeScreens[currentIndex - 1]);
-      }
+    function getIdx() {
+      const active = document.querySelector('.screen.active');
+      return active ? swipeScreens.indexOf(active.id) : -1;
     }
 
-    function executeSwipe(targetScreenId) {
-      isCooldown = true;
-      showScreen(targetScreenId);
-      setTimeout(() => { isCooldown = false; }, 500); // Bloqueo de medio segundo para evitar saltos dobles
-    }
-
-    // SOPORTE PARA CELULAR (Táctil)
+    // 1. TÁCTIL: EFECTO 1:1 REAL EN CELULARES
     document.addEventListener('touchstart', e => {
-      if (e.target.closest('input, textarea, button, .rubro-grade-row')) return;
-      touchStartX = e.changedTouches[0].screenX;
+      if (swipeBlocked || e.target.closest('input, textarea, button, .rubro-grade-row')) return;
+      const idx = getIdx();
+      if (idx === -1) return;
+
+      startX = e.touches[0].clientX;
+      activeEl = document.getElementById(swipeScreens[idx]);
+      screenWidth = window.innerWidth;
+      isMoving = true;
+    }, { passive: true });
+
+    document.addEventListener('touchmove', e => {
+      if (!isMoving || !activeEl) return;
+      
+      currentX = e.touches[0].clientX;
+      const diffX = currentX - startX;
+      const idx = getIdx();
+
+      // Bloquear arrastre hacia la nada (rebote estricto)
+      if ((idx === 0 && diffX > 0) || (idx === swipeScreens.length - 1 && diffX < 0)) return;
+
+      isNext = diffX < 0;
+      targetEl = document.getElementById(swipeScreens[isNext ? idx + 1 : idx - 1]);
+
+      if (!targetEl) return;
+
+      // FIX: Asegurarnos de "dibujar" la agenda si está vacía antes de jalarla
+      if (targetEl.id === 's-agenda') {
+        if (typeof App.buildAgenda === 'function') App.buildAgenda();
+        if (typeof App.renderAgenda === 'function') App.renderAgenda();
+      }
+
+      // Preparar la pantalla destino para deslizarse junto a la actual
+      targetEl.style.display = 'block';
+      targetEl.style.opacity = '1';
+      targetEl.style.position = 'absolute';
+      targetEl.style.top = '0';
+      targetEl.style.left = '0';
+      targetEl.style.width = '100%';
+      targetEl.style.zIndex = '50';
+      
+      targetEl.style.transition = 'none';
+      activeEl.style.transition = 'none';
+
+      // Movimiento 1:1 con tu dedo
+      activeEl.style.transform = `translateX(${diffX}px)`;
+      targetEl.style.transform = `translateX(${diffX + (isNext ? screenWidth : -screenWidth)}px)`;
     }, { passive: true });
 
     document.addEventListener('touchend', e => {
-      if (e.target.closest('input, textarea, button, .rubro-grade-row')) return;
-      touchEndX = e.changedTouches[0].screenX;
-      handleSwipe();
-    }, { passive: true });
+      if (!isMoving || !activeEl) return;
+      isMoving = false;
 
-    // SOPORTE PARA COMPUTADORA (Trackpad) - Versión controlada
-    let wheelTimeout;
+      if (!targetEl) { activeEl.style.transform = ''; return; }
+
+      const diffX = currentX - startX;
+      const threshold = screenWidth * 0.25; // Se requiere mover el 25% de la pantalla para confirmar
+
+      // Regresamos la animación suave para el cierre del gesto
+      activeEl.style.transition = 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)';
+      targetEl.style.transition = 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)';
+
+      if (Math.abs(diffX) > threshold) {
+        // Swipe completado
+        activeEl.style.transform = `translateX(${isNext ? -screenWidth : screenWidth}px)`;
+        targetEl.style.transform = `translateX(0)`;
+
+        swipeBlocked = true;
+        setTimeout(() => {
+          cleanUpStyles();
+          showScreen(targetEl.id); // Oficializamos el cambio visualmente
+          swipeBlocked = false;
+        }, 300);
+      } else {
+        // Swipe cancelado, regresa como liga de goma
+        activeEl.style.transform = `translateX(0)`;
+        targetEl.style.transform = `translateX(${isNext ? screenWidth : -screenWidth}px)`;
+
+        swipeBlocked = true;
+        setTimeout(() => {
+          cleanUpStyles();
+          swipeBlocked = false;
+        }, 300);
+      }
+
+      function cleanUpStyles() {
+        if(activeEl) { activeEl.style.transform = ''; activeEl.style.transition = ''; }
+        if(targetEl) {
+          targetEl.style.display = ''; targetEl.style.opacity = ''; targetEl.style.position = '';
+          targetEl.style.top = ''; targetEl.style.left = ''; targetEl.style.width = '';
+          targetEl.style.zIndex = ''; targetEl.style.transform = ''; targetEl.style.transition = '';
+        }
+        activeEl = null; targetEl = null;
+      }
+    });
+
+    // 2. TRACKPAD: ACUMULADOR DE INERCIA (Solo Mac/PC)
     document.addEventListener('wheel', e => {
-      if (isCooldown) return;
-      if (e.target.closest('input, textarea, button, .rubro-grade-row, .history-list')) return;
-      
-      // Solo le hacemos caso al trackpad si el movimiento es claramente HORIZONTAL 
-      // (Ignoramos si estás scrolleando hacia abajo o arriba)
-      if (Math.abs(e.deltaX) > 60 && Math.abs(e.deltaY) < 20) {
-        touchStartX = e.deltaX > 0 ? 100 : 0;
-        touchEndX = 0;
-        
-        // El timeout agrupa los cientos de eventos del trackpad en uno solo
-        clearTimeout(wheelTimeout);
-        wheelTimeout = setTimeout(() => {
-          handleSwipe();
-        }, 50);
+      if (swipeBlocked || e.target.closest('input, textarea, button, .rubro-grade-row, .history-list')) return;
+
+      const idx = getIdx();
+      if (idx === -1) return;
+
+      // Filtramos que el movimiento sea dominado en el eje horizontal
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY) + 10) {
+        wheelAcc += e.deltaX;
+
+        // Requiere llenar el acumulador (300px) para confirmar el swipe
+        if (wheelAcc > 300 && idx < swipeScreens.length - 1) {
+          triggerTrackpad(swipeScreens[idx + 1]);
+        } else if (wheelAcc < -300 && idx > 0) {
+          triggerTrackpad(swipeScreens[idx - 1]);
+        }
+      } else {
+        wheelAcc = 0; // Si hace scroll vertical, se reinicia
       }
     }, { passive: true });
+
+    function triggerTrackpad(targetId) {
+      swipeBlocked = true;
+      wheelAcc = 0;
+      
+      if (targetId === 's-agenda') {
+        if (typeof App.buildAgenda === 'function') App.buildAgenda();
+        if (typeof App.renderAgenda === 'function') App.renderAgenda();
+      }
+      
+      showScreen(targetId);
+      setTimeout(() => { swipeBlocked = false; }, 600); // Bloqueo para evitar dobles saltos
+    }
   },
+  
   exportCSV() {
     let csv = '"CALIFICACIONES"\n\n';
     
