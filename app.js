@@ -93,27 +93,56 @@ function badgeForGrade(g) {
 // ── SUPABASE DB ─────────────────────────────────────
 const DB = {
   async load() {
-    const { data, error } = await _supa.from('profiles').select('data').eq('id', State.user.id).single();
-    if (error && error.code !== 'PGRST116') { console.error(error); return null; }
-    return data?.data ?? null;
+    // 1. Intentar cargar desde Supabase si hay internet
+    if (navigator.onLine) {
+      try {
+        const { data, error } = await _supa.from('profiles').select('data').eq('id', State.user.id).single();
+        if (!error && data?.data) {
+          // Si la nube responde bien, actualizamos nuestro respaldo local de seguridad
+          localStorage.setItem('calcgrade_data', JSON.stringify(data.data));
+          return data.data;
+        }
+      } catch (e) {
+        console.warn("Sin respuesta de la nube, cargando datos locales...");
+      }
+    }
+    
+    // 2. Si estamos offline (o falló la nube), leemos el respaldo del teléfono
+    const localData = localStorage.getItem('calcgrade_data');
+    return localData ? JSON.parse(localData) : null;
   },
+
   async save(payload) {
     setSyncState('syncing');
-    const { error } = await _supa.from('profiles').upsert({
-      id: State.user.id, data: payload, updated_at: new Date().toISOString(),
-    });
-    if (error) { console.error(error); setSyncState('error'); return false; }
-    setSyncState('synced'); return true;
+
+    // 1. GUARDADO LOCAL INMEDIATO (Infalible, funciona sin internet)
+    localStorage.setItem('calcgrade_data', JSON.stringify(payload));
+
+    // 2. Si no hay internet, el trabajo terminó. Ya está a salvo en el celular.
+    if (!navigator.onLine) {
+      setSyncState('synced'); // Visualmente el usuario ve que se guardó
+      return true;
+    }
+
+    // 3. RESPALDO EN LA NUBE (Solo si hay conexión)
+    try {
+      const { error } = await _supa.from('profiles').upsert({
+        id: State.user.id, 
+        data: payload, 
+        updated_at: new Date().toISOString(),
+      });
+      
+      if (error) throw error;
+      
+      setSyncState('synced'); 
+      return true;
+    } catch (error) {
+      console.error("Error subiendo a Supabase, pero los datos están a salvo localmente:", error);
+      setSyncState('error'); 
+      return false;
+    }
   },
 };
-
-function scheduleSave() {
-  clearTimeout(State.syncTimer); setSyncState('syncing');
-  State.syncTimer = setTimeout(async () => {
-    // Se añade agenda al guardado
-    await DB.save({ materias: State.materias, minPass: State.minPass, historial: State.historial, agenda: State.agenda });
-  }, 1200);
-}
 
 // ── AUTH ────────────────────────────────────────────
 const Auth = {
@@ -1083,5 +1112,18 @@ window.addEventListener('popstate', (e) => {
   }
 });
 
-// ── BOOT ────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => { App.loadTheme(); App.initSwipes(); Auth.init(); });
+// ── BOOT Y REGISTRO OFFLINE ────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => { 
+  App.loadTheme(); 
+  App.initSwipes(); 
+  Auth.init(); 
+
+  // Registrar el Service Worker para modo Offline
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js')
+        .then(reg => console.log('Modo Offline listo y activado.'))
+        .catch(err => console.error('Error al activar Modo Offline', err));
+    });
+  }
+});
