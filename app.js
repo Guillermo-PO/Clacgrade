@@ -38,6 +38,19 @@ const PALETTE = ['#5d7bff', '#2ecc8a', '#f5a623', '#ff5f72', '#a78bfa', '#34d399
 const $ = (id) => document.getElementById(id);
 const fmt = (n, dec = 2) => isNaN(n) || n === null ? '—' : parseFloat(n).toFixed(dec);
 
+// Escapa HTML para evitar inyección (XSS) cuando insertamos texto
+// escrito por el usuario (nombres de materia, rubros, eventos, etc.)
+// dentro de innerHTML. SIEMPRE usar esta función para ese tipo de datos.
+function esc(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function showScreen(id, animClass = null, pushToHistory = true) {
   document.querySelectorAll('.screen').forEach((s) => {
     s.classList.remove('active', 'slide-in-right', 'slide-in-left');
@@ -193,7 +206,9 @@ const Auth = {
       showScreen('s-auth'); Auth.renderQuote(); Auth.renderForm();
     }
     _supa.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session?.user) {
+      if (event === 'PASSWORD_RECOVERY') {
+        Auth.showResetPasswordModal();
+      } else if (event === 'SIGNED_IN' && session?.user) {
         if (Auth._initialized && State.user && State.user.id === session.user.id) return;
         State.user = session.user; Auth._initialized = true; await Auth.afterLogin();
       } else if (event === 'TOKEN_REFRESHED') {
@@ -202,6 +217,21 @@ const Auth = {
         State.user = null; Auth._initialized = false; showScreen('s-auth'); Auth.renderForm();
       }
     });
+  },
+  showResetPasswordModal() {
+    const modal = $('reset-pass-modal');
+    if (modal) { modal.classList.remove('hidden'); const err = $('reset-pass-err'); if (err) err.classList.remove('show'); }
+  },
+  async submitNewPassword() {
+    const p1 = $('reset-pass-1')?.value; const p2 = $('reset-pass-2')?.value;
+    const err = $('reset-pass-err'); err.classList.remove('show');
+    if (!p1 || p1.length < 6) { err.textContent = 'La contraseña debe tener al menos 6 caracteres.'; err.classList.add('show'); return; }
+    if (p1 !== p2) { err.textContent = 'Las contraseñas no coinciden.'; err.classList.add('show'); return; }
+    const { error } = await _supa.auth.updateUser({ password: p1 });
+    if (error) { err.textContent = error.message; err.classList.add('show'); return; }
+    $('reset-pass-modal').classList.add('hidden');
+    window.history.replaceState(null, '', window.location.pathname);
+    toast('Contraseña actualizada. Ya puedes usarla para iniciar sesión.');
   },
   renderQuote() {
     const q = getRandomQuote(); const el = $('auth-quote');
@@ -252,8 +282,20 @@ const Auth = {
         <label>Contraseña</label>
         <input type="password" id="auth-pass" placeholder="••••••••" autocomplete="${isLogin ? 'current-password' : 'new-password'}" onkeydown="if(event.key==='Enter') Auth.submit()">
       </div>
+      ${isLogin ? `<div style="text-align:right;margin-top:-6px;margin-bottom:14px;"><a href="#" onclick="Auth.forgotPassword();return false;" style="font-size:12px;color:var(--text2);text-decoration:underline;">¿Olvidaste tu contraseña?</a></div>` : ''}
       <button class="btn btn-full" onclick="Auth.submit()">${isLogin ? 'Iniciar sesión' : 'Crear cuenta'}</button>
     `;
+  },
+  async forgotPassword() {
+    const email = $('auth-email')?.value?.trim();
+    const err = $('auth-err'); err.classList.remove('show'); err.style.color = '';
+    if (!email) { err.textContent = 'Escribe tu correo arriba y luego da clic en el enlace.'; err.classList.add('show'); return; }
+    const redirectTo = window.location.origin + window.location.pathname;
+    const { error } = await _supa.auth.resetPasswordForEmail(email, { redirectTo });
+    if (error) { err.textContent = error.message; err.classList.add('show'); return; }
+    err.style.color = 'var(--green)';
+    err.textContent = '✓ Revisa tu correo, te enviamos un enlace para restablecer tu contraseña.';
+    err.classList.add('show');
   },
   async submit() {
     const email = $('auth-email')?.value?.trim(); const pass = $('auth-pass')?.value;
@@ -389,8 +431,8 @@ const Agenda = {
     return `
       <div class="ev-card ${e.completado ? 'done' : ''}" style="border-left-color:${color};">
         <div class="ev-info">
-          <div class="ev-title" style="${e.completado ? 'text-decoration:line-through;' : ''}">${e.titulo}</div>
-          <div class="ev-meta"><span style="color:${color}; font-weight:500;">${mat?.nombre || 'Materia Eliminada'}</span><span>•</span><span>${e.tipo}</span><span>•</span><span>📅 ${dateStr}</span></div>
+          <div class="ev-title" style="${e.completado ? 'text-decoration:line-through;' : ''}">${esc(e.titulo)}</div>
+          <div class="ev-meta"><span style="color:${color}; font-weight:500;">${esc(mat?.nombre) || 'Materia Eliminada'}</span><span>•</span><span>${esc(e.tipo)}</span><span>•</span><span>📅 ${dateStr}</span></div>
         </div>
         <div style="display:flex; gap:8px;">
           <button class="btn-icon" style="color:var(--text); background:${e.completado ? 'var(--green-bg)' : 'var(--bg3)'};" onclick="Agenda.toggleDone('${e.id}')">${e.completado ? '✓' : '○'}</button>
@@ -434,7 +476,7 @@ const Agenda = {
   openAddEvent() {
     if (!State.materias.length) { toast('Agrega una materia primero'); return; }
     $('ev-title').value = ''; const dateStr = `${this.selectedDate.getFullYear()}-${String(this.selectedDate.getMonth() + 1).padStart(2, '0')}-${String(this.selectedDate.getDate()).padStart(2, '0')}`;
-    $('ev-date').value = dateStr; $('ev-materia').innerHTML = State.materias.map((m, i) => `<option value="${i}">${m.nombre || 'Materia ' + (i+1)}</option>`).join('');
+    $('ev-date').value = dateStr; $('ev-materia').innerHTML = State.materias.map((m, i) => `<option value="${i}">${esc(m.nombre) || 'Materia ' + (i+1)}</option>`).join('');
     $('add-event-modal').classList.remove('hidden');
   },
   closeAddEvent(e) { if (e && e.target !== $('add-event-modal')) return; $('add-event-modal').classList.add('hidden'); },
@@ -642,7 +684,7 @@ initSwipes() {
     }
     container.innerHTML = State.historial.map((h, i) => `
       <div class="hist-item">
-        <span class="hist-sem">${h.semestre}</span>
+        <span class="hist-sem">${esc(h.semestre)}</span>
         <div style="display:flex; align-items:center; gap:12px;">
           <span class="hist-prom">${fmt(h.promedio)}</span>
           <button class="btn-icon" style="width:26px; height:26px; font-size:12px; color:var(--red); background:var(--red-bg);" onclick="App.delHistory(${i})">✕</button>
@@ -880,7 +922,7 @@ initSwipes() {
       
       return `<div class="card card-clickable" style="border-left: 4px solid ${m.color || 'var(--accent)'};" onclick="App.openMateria(${i})">
         <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px">
-          <div><div style="font-size:16px;font-weight:500;margin-bottom:3px">${m.nombre || `Materia ${i + 1}`}</div><div style="font-size:12px;color:var(--text3)">${m.rubros.length} rubros · ${covered}% cubierto${totalPend > 0 ? ` · ${totalPend} pendiente${totalPend > 1 ? 's' : ''}` : ''}</div></div>
+          <div><div style="font-size:16px;font-weight:500;margin-bottom:3px">${esc(m.nombre) || `Materia ${i + 1}`}</div><div style="font-size:12px;color:var(--text3)">${m.rubros.length} rubros · ${covered}% cubierto${totalPend > 0 ? ` · ${totalPend} pendiente${totalPend > 1 ? 's' : ''}` : ''}</div></div>
           <div style="text-align:right"><div class="big-grade ${gradeClass(avg)}" style="font-size:28px">${avg !== null ? fmt(avg) : '—'}</div><div class="badge ${avg !== null && avg >= State.minPass ? 'badge-green' : avg !== null ? 'badge-red' : ''}" style="margin-top:4px;">${badgeForGrade(avg)}</div></div>
         </div>
         <div style="display:flex;align-items:center;gap:8px"><div class="pbar-wrap"><div class="pbar-fill" style="width:${covered}%;background:var(--accent)"></div></div><span style="font-size:11px;color:var(--accent);font-family:var(--mono);font-weight:500;">${covered}%</span></div>
@@ -950,7 +992,7 @@ initSwipes() {
       // Aquí está la solución exacta para que el cursor no salte:
       const gradesHtml = r.calificaciones.map((g, gi) => `
         <div class="grade-pill">
-          <input type="text" id="grade-input-${ri}-${gi}" inputmode="decimal" class="grade-input" value="${g}" placeholder="0.0" oninput="App.updateGrade(${ri},${gi},this.value)" onblur="App.commitGrade(${ri},${gi},this.value,this)">
+          <input type="text" id="grade-input-${ri}-${gi}" inputmode="decimal" class="grade-input" value="${esc(g)}" placeholder="0.0" oninput="App.updateGrade(${ri},${gi},this.value)" onblur="App.commitGrade(${ri},${gi},this.value,this)">
           <button class="grade-del-btn" onclick="App.removeGrade(${ri},${gi})">✕</button>
         </div>
       `).join('');
@@ -958,12 +1000,12 @@ initSwipes() {
       return `
         <div class="rubro-grade-row">
           <div class="rg-header">
-            <div><span class="rg-name">${r.nombre}</span> <span class="rg-pct">${r.porcentaje}%</span></div>
+            <div><span class="rg-name">${esc(r.nombre)}</span> <span class="rg-pct">${r.porcentaje}%</span></div>
             <span class="rubro-avg-chip" style="font-family:var(--mono);font-size:16px;font-weight:500;color:${chipColor}">${ravg !== null ? fmt(ravg) : '—'}</span>
           </div>
           <div class="rg-grades">${gradesHtml} <button class="grade-add-btn" onclick="App.addGrade(${ri})">+</button></div>
           <div class="pendientes-row">
-            <span class="pendientes-label">📋 ¿Cuántos ${r.nombre} faltan por calificar?</span>
+            <span class="pendientes-label">📋 ¿Cuántos ${esc(r.nombre)} faltan por calificar?</span>
             <div class="pendientes-counter">
               <button onclick="App.setPendientes(${ri}, ${pend - 1})">−</button><div class="pend-val">${pend}</div><button onclick="App.setPendientes(${ri}, ${pend + 1})">+</button>
             </div>
@@ -977,7 +1019,7 @@ initSwipes() {
       detailEl.innerHTML = `
         <div class="card">
           <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px;">
-            <h2 style="font-size:22px; margin:0;">${mat.nombre || `Materia ${State.activeMateria + 1}`}</h2>
+            <h2 style="font-size:22px; margin:0;">${esc(mat.nombre) || `Materia ${State.activeMateria + 1}`}</h2>
             <div style="background:var(--bg3); padding:8px 12px; border-radius:var(--r-md); border:1px solid var(--border); display:flex; flex-direction:column; gap:6px; align-items:flex-end;">
               <label style="display:flex; align-items:center; gap:8px; font-size:12px; cursor:pointer; color:var(--text2);">
                 <input type="checkbox" ${mat.redondeo ? 'checked' : ''} onchange="App.toggleRedondeo(this.checked)" style="width:14px; height:14px; accent-color:var(--accent);">
@@ -1158,11 +1200,13 @@ initSwipes() {
   },
   setAddMatColor(c) { App._activeColor = c; App._renderAddMatColors(); },
   closeAddMateria(e) { if (e && e.target !== $('add-materia-modal')) return; $('add-materia-modal').classList.add('hidden'); },
+  showPrivacyModal() { $('privacy-modal').classList.remove('hidden'); },
+  closePrivacyModal(e) { if (e && e.target !== $('privacy-modal')) return; $('privacy-modal').classList.add('hidden'); },
   _renderAddModalRubros() {
     const rubros = App._addModalRubros;
     $('add-mat-rubros').innerHTML = rubros.map((r, i) => `
       <div class="rubro-config-row">
-        <input type="text" value="${r.nombre}" placeholder="Nombre del rubro" oninput="App._addModalRubros[${i}].nombre=this.value">
+        <input type="text" value="${esc(r.nombre)}" placeholder="Nombre del rubro" oninput="App._addModalRubros[${i}].nombre=this.value">
         <input type="number" min="0" max="100" value="${r.porcentaje}" style="text-align:center" oninput="App._addModalRubros[${i}].porcentaje=parseFloat(this.value)||0; App._updateAddBar()">
         ${rubros.length > 1 ? `<button class="btn-icon" style="color:var(--red);" onclick="App._addModalRubros.splice(${i},1);App._renderAddModalRubros()">✕</button>` : '<div></div>'}
       </div>
