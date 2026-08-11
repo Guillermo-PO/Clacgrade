@@ -90,6 +90,9 @@
             </button>
             <div class="auth-err err-msg" id="auth-err"></div>
             <div class="auth-quote" id="auth-quote"></div>
+            <p style="text-align:center;margin-top:16px;">
+              <a href="#" onclick="App.showPrivacyModal();return false;" style="font-size:12px;color:var(--text3);text-decoration:underline;">Aviso de privacidad</a>
+            </p>
           </div>
         </div>
       </div>
@@ -326,6 +329,45 @@
         <button class="btn btn-full" style="margin-top:20px;" onclick="Agenda.saveEvent()">Guardar en Agenda</button>
       </div>
     </div>
+    <!-- MODAL: RESTABLECER CONTRASEÑA (NUEVO) -->
+    <div id="reset-pass-modal" class="modal-overlay hidden">
+      <div class="modal-sheet">
+        <div class="modal-handle"></div>
+        <h2 class="modal-title">Nueva contraseña</h2>
+        <p style="font-size:13px;color:var(--text2);margin-bottom:16px;">Elige una nueva contraseña para tu cuenta.</p>
+        <div class="field">
+          <label>Nueva contraseña</label>
+          <input type="password" id="reset-pass-1" placeholder="••••••••" autocomplete="new-password">
+        </div>
+        <div class="field">
+          <label>Confirmar contraseña</label>
+          <input type="password" id="reset-pass-2" placeholder="••••••••" autocomplete="new-password" onkeydown="if(event.key==='Enter') Auth.submitNewPassword()">
+        </div>
+        <div id="reset-pass-err" class="err-msg"></div>
+        <button class="btn btn-full" style="margin-top:20px;" onclick="Auth.submitNewPassword()">Guardar contraseña</button>
+      </div>
+    </div>
+    <!-- MODAL: AVISO DE PRIVACIDAD (NUEVO) -->
+    <div id="privacy-modal" class="modal-overlay hidden" onclick="App.closePrivacyModal(event)">
+      <div class="modal-sheet">
+        <div class="modal-handle"></div>
+        <h2 class="modal-title">Aviso de privacidad</h2>
+        <div style="font-size:13px;color:var(--text2);line-height:1.6;max-height:50vh;overflow-y:auto;">
+          <p style="margin-bottom:12px;"><strong>¿Qué datos guardamos?</strong><br>
+          Tu correo electrónico (para el inicio de sesión), y la información académica que tú ingresas: nombres de materias, calificaciones, rubros, pendientes de agenda e historial de semestres.</p>
+          <p style="margin-bottom:12px;"><strong>¿Dónde se guarda?</strong><br>
+          En Supabase (nuestro proveedor de base de datos) y una copia local en tu propio dispositivo para que la app funcione sin internet. Tu contraseña nunca se guarda en texto plano: Supabase la almacena cifrada.</p>
+          <p style="margin-bottom:12px;"><strong>¿Quién puede verlo?</strong><br>
+          Solo tú. El acceso a tus datos está restringido por reglas de seguridad a nivel de base de datos (Row Level Security) que impiden que otros usuarios lean o modifiquen tu información.</p>
+          <p style="margin-bottom:12px;"><strong>¿Se comparte con terceros?</strong><br>
+          No. No vendemos ni compartimos tus datos con nadie. No hay publicidad ni rastreo.</p>
+          <p style="margin-bottom:0;"><strong>¿Cómo elimino mis datos?</strong><br>
+          Escríbenos al correo calcgradeinfo@gmail.com y podemos borrar tu cuenta y toda tu información asociada.</p>
+        </div>
+        <button class="btn btn-full" style="margin-top:20px;" onclick="App.closePrivacyModal()">Entendido</button>
+      </div>
+    </div>
+
 <div class="swipe-dots" id="swipe-dots" style="display:none;">
       <span class="s-dot" id="dot-dash"></span>
       <span class="s-dot" id="dot-agenda"></span>
